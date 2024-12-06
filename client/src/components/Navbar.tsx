@@ -28,7 +28,7 @@ export function Navbar() {
               size="sm"
               asChild
             >
-              <Link href="/profile/me">
+              <Link href="/profile/1">
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </Link>

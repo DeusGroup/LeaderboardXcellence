@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export function Profile() {
   const { id } = useParams();
   
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isProfileLoading, error: profileError } = useQuery({
     queryKey: ["profile", id],
     queryFn: () => {
       if (!id) throw new Error("No ID provided");
@@ -46,7 +46,24 @@ export function Profile() {
     enabled: !!id,
   });
 
-  if (!profile) return <div>Loading...</div>;
+  if (isProfileLoading) return (
+    <div className="space-y-4">
+      <div className="h-32 bg-muted animate-pulse rounded-lg" />
+      <div className="h-64 bg-muted animate-pulse rounded-lg" />
+    </div>
+  );
+
+  if (profileError) return (
+    <div className="text-center py-12 text-destructive">
+      Error loading profile. Please try again.
+    </div>
+  );
+
+  if (!profile) return (
+    <div className="text-center py-12 text-muted-foreground">
+      Profile not found
+    </div>
+  );
 
   return (
     <div className="space-y-8">
