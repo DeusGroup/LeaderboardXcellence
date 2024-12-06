@@ -21,14 +21,11 @@ export function Profile() {
 
   interface Achievement {
     id: number;
-    achievement: {
-      id: number;
-      name: string;
-      description: string;
-      pointsRequired: number;
-      badgeImageUrl: string;
-    };
-    earnedAt: string;
+    name: string;
+    description: string;
+    pointsRequired: number;
+    badgeImageUrl: string;
+    earnedAt: string | null;
   }
 
   const { data: achievements } = useQuery<Achievement[]>({
@@ -77,13 +74,7 @@ export function Profile() {
             {achievements?.map((achievementEntry) => (
               <AchievementCard 
                 key={achievementEntry.id} 
-                achievement={{
-                  id: achievementEntry.achievement.id,
-                  name: achievementEntry.achievement.name,
-                  description: achievementEntry.achievement.description,
-                  pointsRequired: achievementEntry.achievement.pointsRequired,
-                  earnedAt: achievementEntry.earnedAt
-                }} 
+                achievement={achievementEntry}
               />
             ))}
           </div>
