@@ -16,10 +16,11 @@ export function App() {
       <div 
         className="fixed inset-0 -z-10"
         style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1580777361964-27e9cdd2f838)',
-          backgroundBlendMode: 'overlay',
+          backgroundImage: 'url(https://images.unsplash.com/photo-1555664424-778a1e5e1b48)',
+          backgroundBlendMode: 'soft-light',
           backgroundSize: 'cover',
-          opacity: 0.1
+          opacity: 0.15,
+          filter: 'grayscale(100%)'
         }}
       />
       <Navbar />
