@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { fetchProfile, fetchPointsHistory } from "../lib/api";
 import { PointsHistory } from "../components/PointsHistory";
 import { UserSelect } from "../components/UserSelect";
+import { EditProfileDialog } from "../components/EditProfileDialog";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -66,7 +67,15 @@ export function Profile() {
                 <AvatarFallback>{profile.name[0]}</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle>{profile.name}</CardTitle>
+                <div className="flex items-center gap-4">
+                  <CardTitle>{profile.name}</CardTitle>
+                  <EditProfileDialog
+                    employeeId={profile.id}
+                    currentName={profile.name}
+                    currentTitle={profile.title}
+                    currentDepartment={profile.department}
+                  />
+                </div>
                 <p className="text-muted-foreground">{profile.title}</p>
                 <p className="text-2xl font-bold mt-2">{profile.points} points</p>
               </div>

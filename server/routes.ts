@@ -19,6 +19,20 @@ export function registerRoutes(app: Express) {
     res.json(employee);
   });
 
+  app.put("/api/employees/:id", async (req, res) => {
+    const { name, title, department } = req.body;
+    try {
+      const [updated] = await db
+        .update(employees)
+        .set({ name, title, department })
+        .where(eq(employees.id, parseInt(req.params.id)))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update employee" });
+    }
+  });
+
   app.post("/api/points/award", async (req, res) => {
     const { employeeId, points, reason } = req.body;
     const [history] = await db.insert(pointsHistory).values({
