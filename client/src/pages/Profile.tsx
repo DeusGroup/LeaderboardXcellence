@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { fetchProfile, fetchAchievements, fetchPointsHistory } from "../lib/api";
-import { AchievementCard } from "../components/AchievementCard";
+import { fetchProfile, fetchPointsHistory } from "../lib/api";
 import { PointsHistory } from "../components/PointsHistory";
 import { UserSelect } from "../components/UserSelect";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export function Profile() {
   const { id } = useParams();
@@ -28,15 +26,6 @@ export function Profile() {
     badgeImageUrl: string;
     earnedAt: string | null;
   }
-
-  const { data: achievements } = useQuery<Achievement[]>({
-    queryKey: ["achievements", id],
-    queryFn: () => {
-      if (!id) throw new Error("No ID provided");
-      return fetchAchievements(parseInt(id));
-    },
-    enabled: !!id,
-  });
 
   const { data: history } = useQuery({
     queryKey: ["pointsHistory", id],
@@ -87,25 +76,9 @@ export function Profile() {
         </CardHeader>
       </Card>
 
-      <Tabs defaultValue="achievements">
-        <TabsList>
-          <TabsTrigger value="achievements">Achievements</TabsTrigger>
-          <TabsTrigger value="history">Points History</TabsTrigger>
-        </TabsList>
-        <TabsContent value="achievements" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {achievements?.map((achievementEntry) => (
-              <AchievementCard 
-                key={achievementEntry.id} 
-                achievement={achievementEntry}
-              />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="history" className="mt-6">
-          <PointsHistory history={history} />
-        </TabsContent>
-      </Tabs>
+      <div className="mt-8">
+        <PointsHistory history={history} />
+      </div>
     </div>
   );
 }
