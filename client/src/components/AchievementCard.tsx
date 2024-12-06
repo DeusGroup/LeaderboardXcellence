@@ -14,7 +14,7 @@ interface AchievementCardProps {
     name: string;
     description: string;
     pointsRequired: number;
-    earnedAt?: string;
+    earnedAt: string | null;
   };
 }
 

@@ -28,9 +28,12 @@ export function registerRoutes(app: Express) {
       awardedBy: 1, // TODO: Get from session
     }).returning();
 
-    await db.update(employees)
-      .set({ points: employees.points + points })
-      .where(eq(employees.id, employeeId));
+    await db.execute(
+      `UPDATE ${employees._.name} 
+       SET points = points + $1 
+       WHERE id = $2`,
+      [points, employeeId]
+    );
 
     res.json(history);
   });
