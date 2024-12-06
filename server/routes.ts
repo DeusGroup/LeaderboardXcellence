@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { db } from "../db";
 import { employees, achievements, pointsHistory, employeeAchievements } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 export function registerRoutes(app: Express) {
   app.get("/api/leaderboard", async (req, res) => {
@@ -28,12 +28,11 @@ export function registerRoutes(app: Express) {
       awardedBy: 1, // TODO: Get from session
     }).returning();
 
-    await db.execute(
-      `UPDATE ${employees._.name} 
-       SET points = points + $1 
-       WHERE id = $2`,
-      [points, employeeId]
-    );
+    await db.execute(sql`
+      UPDATE ${employees._.name} 
+      SET points = points + ${points}
+      WHERE id = ${employeeId}
+    `);
 
     res.json(history);
   });
