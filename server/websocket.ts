@@ -1,7 +1,7 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
 import { db } from '../db';
-import { employees, achievements } from '@db/schema';
+import { employees, achievements, employeeAchievements } from '@db/schema';
 import { eq } from 'drizzle-orm';
 
 let wss: WebSocketServer;

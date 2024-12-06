@@ -12,13 +12,16 @@ export function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background" 
-         style={{
-           backgroundImage: 'url(https://images.unsplash.com/photo-1580777361964-27e9cdd2f838)',
-           backgroundBlendMode: 'overlay',
-           backgroundSize: 'cover',
-           opacity: 0.1
-         }}>
+    <div className="min-h-screen bg-background">
+      <div 
+        className="fixed inset-0 -z-10"
+        style={{
+          backgroundImage: 'url(https://images.unsplash.com/photo-1580777361964-27e9cdd2f838)',
+          backgroundBlendMode: 'overlay',
+          backgroundSize: 'cover',
+          opacity: 0.1
+        }}
+      />
       <Navbar />
       <main className="container mx-auto px-4 py-8">
         <Switch>
