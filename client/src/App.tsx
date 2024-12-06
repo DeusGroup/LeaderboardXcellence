@@ -16,11 +16,13 @@ export function App() {
       <div 
         className="fixed inset-0 -z-10"
         style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1542903660-eedba2cda473?q=80)',
-          backgroundBlendMode: 'soft-light',
-          backgroundSize: 'cover',
-          opacity: 0.25,
-          filter: 'brightness(0.9) contrast(1.1) grayscale(100%)'
+          background: `
+            linear-gradient(90deg, rgba(18, 18, 18, 0.8) 2px, transparent 2px) 0 0 / 50px 50px,
+            linear-gradient(rgba(18, 18, 18, 0.8) 2px, transparent 2px) 0 0 / 50px 50px,
+            radial-gradient(circle, rgba(0, 120, 255, 0.1) 1px, transparent 1px) 0 0 / 25px 25px
+          `,
+          backgroundColor: 'rgba(240, 240, 255, 0.05)',
+          opacity: 0.15
         }}
       />
       <Navbar />
