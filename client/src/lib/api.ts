@@ -19,7 +19,11 @@ export async function awardPoints(employeeId: number, points: number, reason: st
     body: JSON.stringify({ employeeId, points, reason })
   });
   if (!res.ok) throw new Error("Failed to award points");
-  return res.json();
+  const data = await res.json();
+  return {
+    history: data.history,
+    employee: data.updated
+  };
 }
 
 export async function fetchPointsHistory(employeeId: number) {

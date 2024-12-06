@@ -35,20 +35,28 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/points/award", async (req, res) => {
     const { employeeId, points, reason } = req.body;
-    const [history] = await db.insert(pointsHistory).values({
-      employeeId,
-      points,
-      reason,
-      awardedBy: 1, // TODO: Get from session
-    }).returning();
+    
+    // Start a transaction to ensure both operations succeed or fail together
+    const result = await db.transaction(async (tx) => {
+      const [history] = await tx.insert(pointsHistory).values({
+        employeeId,
+        points,
+        reason,
+        awardedBy: 1, // TODO: Get from session
+      }).returning();
 
-    await db.execute(sql`
-      UPDATE ${employees._.name} 
-      SET points = points + ${points}
-      WHERE id = ${employeeId}
-    `);
+      const [updated] = await tx
+        .update(employees)
+        .set({
+          points: sql`${employees.points} + ${points}`
+        })
+        .where(eq(employees.id, employeeId))
+        .returning();
 
-    res.json(history);
+      return { history, updated };
+    });
+
+    res.json(result);
   });
 
   app.get("/api/points/history/:employeeId", async (req, res) => {
