@@ -44,12 +44,25 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/achievements/:employeeId", async (req, res) => {
-    const employeeAchievs = await db.query.employeeAchievements.findMany({
+    // Get all achievements
+    const allAchievements = await db.query.achievements.findMany();
+    
+    // Get employee's earned achievements
+    const earnedAchievements = await db.query.employeeAchievements.findMany({
       where: eq(employeeAchievements.employeeId, parseInt(req.params.employeeId)),
-      with: {
-        achievement: true,
-      },
     });
-    res.json(employeeAchievs);
+
+    // Combine the data
+    const achievementsWithStatus = allAchievements.map(achievement => {
+      const earned = earnedAchievements.find(
+        earned => earned.achievementId === achievement.id
+      );
+      return {
+        ...achievement,
+        earnedAt: earned ? earned.earnedAt : null
+      };
+    });
+
+    res.json(achievementsWithStatus);
   });
 }
