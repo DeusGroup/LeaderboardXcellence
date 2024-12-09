@@ -53,14 +53,23 @@ export function Admin() {
   const awardPointsMutation = useMutation({
     mutationFn: () => awardPoints(selectedEmployee!, parseInt(points), reason),
     onSuccess: () => {
+      // Invalidate all related queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["pointsHistory"] });
+      queryClient.invalidateQueries({ queryKey: ["profile", selectedEmployee?.toString()] });
       toast({
         title: "Points awarded successfully",
         description: `${points} points awarded to employee`,
       });
       setPoints("");
       setReason("");
-      setSelectedEmployee(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to award points",
+        variant: "destructive",
+      });
     },
   });
 
@@ -131,9 +140,7 @@ export function Admin() {
               {/* Points History with Edit Capability */}
               <div className="mt-8">
                 <h3 className="text-lg font-semibold mb-4">Points History</h3>
-                <PointsHistory 
-                  history={history?.filter(entry => entry.employeeId === selectedEmployee)}
-                />
+                <PointsHistory history={history} />
               </div>
             </>
           )}
