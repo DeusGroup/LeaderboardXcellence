@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { fetchProfile, fetchPointsHistory } from "../lib/api";
 import { PointsHistory } from "../components/PointsHistory";
 import { UserSelect } from "../components/UserSelect";
@@ -36,6 +36,18 @@ export function Profile() {
     },
     enabled: !!id,
   });
+
+  useEffect(() => {
+    fetch('/api/auth/check')
+      .then(res => {
+        if (!res.ok) {
+          setLocation('/login');
+        }
+      })
+      .catch(() => {
+        setLocation('/login');
+      });
+  }, [setLocation]);
 
   if (isProfileLoading) return (
     <div className="space-y-4">

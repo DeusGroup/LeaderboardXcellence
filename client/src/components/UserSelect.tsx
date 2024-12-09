@@ -31,7 +31,7 @@ export function UserSelect({ currentUserId }: UserSelectProps) {
   return (
     <Select
       value={currentUserId}
-      onValueChange={(value) => setLocation(`/profile/${value}`)}
+      onValueChange={(value) => setLocation(`/admin/profile/${value}`)}
     >
       <SelectTrigger className="w-[200px]">
         <SelectValue placeholder="Select user" />

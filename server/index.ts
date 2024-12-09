@@ -3,6 +3,9 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import { createServer } from "http";
 import cookieParser from "cookie-parser";
+import multer from "multer";
+import path from "path";
+import { initializeWebSocket } from "./websocket";
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -51,9 +54,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ensure uploads directory exists
+import fs from "fs";
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
 (async () => {
   registerRoutes(app);
   const server = createServer(app);
+  initializeWebSocket(server);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
