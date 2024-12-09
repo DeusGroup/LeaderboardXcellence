@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, Link } from "wouter";
 import { fetchProfile, fetchPointsHistory } from "../lib/api";
 import { PointsHistory } from "../components/PointsHistory";
 import { UserSelect } from "../components/UserSelect";
@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export function Profile() {
   const { id } = useParams();
+  const [location] = useLocation();
   
   const { data: profile, isLoading: isProfileLoading, error: profileError } = useQuery({
     queryKey: ["profile", id],
@@ -72,18 +73,20 @@ export function Profile() {
               <div>
                 <div className="flex items-center gap-4">
                   <CardTitle>{profile.name}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <EditProfileDialog
-                      employeeId={profile.id}
-                      currentName={profile.name}
-                      currentTitle={profile.title}
-                      currentDepartment={profile.department}
-                    />
-                    <DeleteUserDialog
-                      employeeId={profile.id}
-                      employeeName={profile.name}
-                    />
-                  </div>
+                  {location.startsWith('/admin') && (
+                    <div className="flex items-center gap-2">
+                      <EditProfileDialog
+                        employeeId={profile.id}
+                        currentName={profile.name}
+                        currentTitle={profile.title}
+                        currentDepartment={profile.department}
+                      />
+                      <DeleteUserDialog
+                        employeeId={profile.id}
+                        employeeName={profile.name}
+                      />
+                    </div>
+                  )}
                 </div>
                 <p className="text-muted-foreground">{profile.title}</p>
                 <p className="text-2xl font-bold mt-2">{profile.points} points</p>

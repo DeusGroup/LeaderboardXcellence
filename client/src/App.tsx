@@ -107,6 +107,7 @@ export function App() {
         <Switch>
           <Route path="/" component={Leaderboard} />
           <Route path="/login" component={Login} />
+          <Route path="/profile/:id" component={Profile} />
           <Route path="/admin/profile/:id">
             {({ id }) => <ProtectedRoute component={Profile} id={id} />}
           </Route>
