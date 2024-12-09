@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { UserSelect } from "../components/UserSelect";
 import { AddUserDialog } from "../components/AddUserDialog";
 import { PointsHistory } from "../components/PointsHistory";
+import { PerformanceChart } from "../components/PerformanceChart";
 
 interface Employee {
   id: number;
@@ -138,9 +139,12 @@ export function Admin() {
               </div>
 
               {/* Points History with Edit Capability */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-4">Points History</h3>
-                <PointsHistory history={history} />
+              <div className="space-y-8 mt-8">
+                <PerformanceChart history={history} />
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Points History</h3>
+                  <PointsHistory history={history} />
+                </div>
               </div>
             </>
           )}
