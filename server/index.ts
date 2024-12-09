@@ -6,6 +6,9 @@ import cookieParser from "cookie-parser";
 import multer from "multer";
 import path from "path";
 import { initializeWebSocket } from "./websocket";
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pkg from 'pg';
+const { Client } = pkg;
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -62,33 +65,46 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 (async () => {
-  // Create HTTP server first
-  const server = createServer(app);
+  try {
+    // Initialize database connection
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL,
+    });
+    
+    await client.connect();
+    const db = drizzle(client);
+    
+    // Create HTTP server first
+    const server = createServer(app);
 
-  // Register API routes
-  registerRoutes(app);
+    // Register API routes
+    registerRoutes(app);
 
-  // Setup WebSocket server
-  initializeWebSocket(server);
+    // Setup WebSocket server
+    initializeWebSocket(server);
 
-  // Error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    log(`Error: ${message}`);
-    res.status(status).json({ message });
-  });
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      log(`Error: ${message}`);
+      res.status(status).json({ message });
+    });
 
-  // Setup Vite or static serving
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Setup Vite or static serving
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    // Start server on port 5000
+    const PORT = 5000;
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
-
-  // Start server on port 5000
-  const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`Server running on port ${PORT}`);
-  });
 })();

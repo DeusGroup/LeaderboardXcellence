@@ -140,6 +140,47 @@ export function registerRoutes(app: Express) {
     res.json(result);
   });
 
+  app.put("/api/points/:historyId", requireAuth, async (req, res) => {
+    const { points, reason } = req.body;
+    const historyId = parseInt(req.params.historyId);
+    
+    // Start a transaction to ensure both operations succeed or fail together
+    const result = await db.transaction(async (tx) => {
+      // Get the old points history record
+      const [oldHistory] = await tx
+        .select()
+        .from(pointsHistory)
+        .where(eq(pointsHistory.id, historyId));
+
+      if (!oldHistory) {
+        throw new Error("Points history record not found");
+      }
+
+      // Calculate points difference
+      const pointsDiff = points - oldHistory.points;
+
+      // Update the points history record
+      const [history] = await tx
+        .update(pointsHistory)
+        .set({ points, reason })
+        .where(eq(pointsHistory.id, historyId))
+        .returning();
+
+      // Update employee's total points
+      const [updated] = await tx
+        .update(employees)
+        .set({
+          points: sql`${employees.points} + ${pointsDiff}`
+        })
+        .where(eq(employees.id, oldHistory.employeeId))
+        .returning();
+
+      return { history, updated };
+    });
+
+    res.json(result);
+  });
+
   app.get("/api/points/history/:employeeId", async (req, res) => {
     const history = await db.query.pointsHistory.findMany({
       where: eq(pointsHistory.employeeId, parseInt(req.params.employeeId)),

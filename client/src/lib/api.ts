@@ -31,6 +31,16 @@ export async function fetchPointsHistory(employeeId: number) {
   if (!res.ok) throw new Error("Failed to fetch points history");
   return res.json();
 }
+export async function updatePoints(historyId: number, points: number, reason: string) {
+  const res = await fetch(`${API_BASE}/points/${historyId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ points, reason })
+  });
+  if (!res.ok) throw new Error("Failed to update points");
+  return res.json();
+}
+
 
 export async function fetchAchievements(employeeId: number) {
   const res = await fetch(`${API_BASE}/achievements/${employeeId}`);
