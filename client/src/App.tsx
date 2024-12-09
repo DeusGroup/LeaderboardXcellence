@@ -46,8 +46,8 @@ export function App() {
         <Switch>
           <Route path="/" component={Leaderboard} />
           <Route path="/login" component={Login} />
-          <Route path="/admin">
-            {() => {
+          <Route path="/admin/:rest*">
+            {(params) => {
               const [, setLocation] = useLocation();
               const [isAuthenticated, setIsAuthenticated] = useState(false);
               const [isLoading, setIsLoading] = useState(true);
@@ -90,10 +90,14 @@ export function App() {
                 return null;
               }
 
+              // Parse the rest of the path for nested routing
+              const rest = params.rest || "";
+              
               return (
                 <Switch>
                   <Route path="/admin/profile/:id" component={Profile} />
                   <Route path="/admin" component={Admin} />
+                  <Route>404 - Not Found</Route>
                 </Switch>
               );
             }}

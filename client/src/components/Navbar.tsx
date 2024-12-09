@@ -25,7 +25,7 @@ export function Navbar() {
             </Button>
             {location !== "/login" && (
               <Button
-                variant={location === "/admin" ? "default" : "ghost"}
+                variant={location.startsWith("/admin") ? "default" : "ghost"}
                 size="sm"
                 asChild
               >
