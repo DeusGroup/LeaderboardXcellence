@@ -7,7 +7,7 @@ import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
 import { initWebSocket } from "./lib/websocket";
 
-function ProtectedRoute({ component: Component, ...props }: { component: React.ComponentType<any> }) {
+function ProtectedRoute({ component: Component, ...props }: { component: React.ComponentType<any>, [key: string]: any }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();

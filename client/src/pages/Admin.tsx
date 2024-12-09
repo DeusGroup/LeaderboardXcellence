@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchLeaderboard, awardPoints } from "../lib/api";
@@ -7,35 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserSelect } from "../components/UserSelect";
+
+interface Employee {
+  id: number;
+  name: string;
+  title: string;
+  department: string;
+  points: number;
+}
 
 export function Admin() {
   const [, setLocation] = useLocation();
   const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
-
-  useEffect(() => {
-    // Check if user is authenticated
-    fetch('/api/auth/check')
-      .then(res => {
-        if (!res.ok) {
-          setLocation('/login');
-        }
-      })
-      .catch(() => {
-        setLocation('/login');
-      });
-  }, [setLocation]);
   const [points, setPoints] = useState("");
   const [reason, setReason] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  interface Employee {
-    id: number;
-    name: string;
-    title: string;
-    department: string;
-    points: number;
-  }
 
   const { data: employees } = useQuery<Employee[]>({
     queryKey: ["leaderboard"],
@@ -58,52 +47,77 @@ export function Admin() {
 
   return (
     <div className="space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Award Points</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {employees?.map((employee) => (
-              <Button
-                key={employee.id}
-                variant={selectedEmployee === employee.id ? "default" : "outline"}
-                onClick={() => setSelectedEmployee(employee.id)}
-                className="justify-start"
-              >
-                <img
-                  src={`https://i.pravatar.cc/32?u=${employee.id}`}
-                  alt=""
-                  className="w-8 h-8 rounded-full mr-2"
-                />
-                {employee.name}
-              </Button>
-            ))}
-          </div>
+      <Tabs defaultValue="award-points" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="award-points">Award Points</TabsTrigger>
+          <TabsTrigger value="profiles">Manage Profiles</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="award-points">
+          <Card>
+            <CardHeader>
+              <CardTitle>Award Points</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {employees?.map((employee) => (
+                  <Button
+                    key={employee.id}
+                    variant={selectedEmployee === employee.id ? "default" : "outline"}
+                    onClick={() => setSelectedEmployee(employee.id)}
+                    className="justify-start"
+                  >
+                    <img
+                      src={`https://i.pravatar.cc/32?u=${employee.id}`}
+                      alt=""
+                      className="w-8 h-8 rounded-full mr-2"
+                    />
+                    {employee.name}
+                  </Button>
+                ))}
+              </div>
 
-          {selectedEmployee && (
-            <div className="space-y-4 mt-8">
-              <Input
-                type="number"
-                placeholder="Points to award"
-                value={points}
-                onChange={(e) => setPoints(e.target.value)}
-              />
-              <Textarea
-                placeholder="Reason for points"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-              <Button 
-                onClick={() => awardPointsMutation.mutate()}
-                disabled={!points || !reason}
-              >
-                Award Points
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {selectedEmployee && (
+                <div className="space-y-4 mt-8">
+                  <Input
+                    type="number"
+                    placeholder="Points to award"
+                    value={points}
+                    onChange={(e) => setPoints(e.target.value)}
+                  />
+                  <Textarea
+                    placeholder="Reason for points"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                  <Button 
+                    onClick={() => awardPointsMutation.mutate()}
+                    disabled={!points || !reason}
+                  >
+                    Award Points
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="profiles">
+          <Card>
+            <CardHeader>
+              <CardTitle>Manage Profiles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Select an employee to view and edit their profile
+                </p>
+                <UserSelect currentUserId={undefined} />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
