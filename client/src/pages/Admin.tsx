@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchLeaderboard, awardPoints } from "../lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -8,7 +9,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 export function Admin() {
+  const [, setLocation] = useLocation();
   const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Check if user is authenticated
+    fetch('/api/auth/check')
+      .then(res => {
+        if (!res.ok) {
+          setLocation('/login');
+        }
+      })
+      .catch(() => {
+        setLocation('/login');
+      });
+  }, [setLocation]);
   const [points, setPoints] = useState("");
   const [reason, setReason] = useState("");
   const { toast } = useToast();

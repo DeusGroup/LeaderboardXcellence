@@ -1,8 +1,9 @@
 import { Navbar } from "./components/Navbar";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import { Leaderboard } from "./pages/Leaderboard";
 import { Profile } from "./pages/Profile";
 import { Admin } from "./pages/Admin";
+import { Login } from "./pages/Login";
 import { useEffect } from "react";
 import { initWebSocket } from "./lib/websocket";
 
@@ -27,8 +28,9 @@ export function App() {
       <main className="container mx-auto px-4 py-8">
         <Switch>
           <Route path="/" component={Leaderboard} />
-          <Route path="/profile/:id" component={Profile} />
+          <Route path="/login" component={Login} />
           <Route path="/admin" component={Admin} />
+          <Route path="/admin/profile/:id" component={Profile} />
           <Route>404 Page Not Found</Route>
         </Switch>
       </main>

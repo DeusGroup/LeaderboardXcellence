@@ -4,6 +4,8 @@ import { employees, achievements, pointsHistory, employeeAchievements } from "@d
 import { eq, desc, sql } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
+import jwt from "jsonwebtoken";
+import { requireAuth, type AuthRequest } from "./middleware/auth";
 
 const storage = multer.diskStorage({
   destination: "uploads/",
@@ -16,6 +18,26 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 export function registerRoutes(app: Express) {
+  app.post("/api/auth/login", (req, res) => {
+    const { password } = req.body;
+    
+    if (password === "Welcome1") {
+      const token = jwt.sign({}, process.env.JWT_SECRET || "your-secret-key", {
+        expiresIn: "24h",
+      });
+      
+      res.cookie("authToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      });
+      
+      res.json({ message: "Logged in successfully" });
+    } else {
+      res.status(401).json({ message: "Invalid password" });
+    }
+  });
   app.get("/api/leaderboard", async (req, res) => {
     const leaderboard = await db.query.employees.findMany({
       orderBy: [desc(employees.points)],
@@ -31,7 +53,7 @@ export function registerRoutes(app: Express) {
     res.json(employee);
   });
 
-  app.put("/api/employees/:id", upload.single('image'), async (req, res) => {
+  app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     const { name, title, department } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
     
@@ -52,7 +74,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/points/award", async (req, res) => {
+  app.post("/api/points/award", requireAuth, async (req, res) => {
     const { employeeId, points, reason } = req.body;
     
     // Start a transaction to ensure both operations succeed or fail together

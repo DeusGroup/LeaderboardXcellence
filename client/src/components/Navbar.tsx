@@ -33,16 +33,18 @@ export function Navbar() {
                 Profile
               </Link>
             </Button>
-            <Button
-              variant={location === "/admin" ? "default" : "ghost"}
-              size="sm"
-              asChild
-            >
-              <Link href="/admin">
-                <Settings className="mr-2 h-4 w-4" />
-                Admin
-              </Link>
-            </Button>
+            {location !== "/login" && (
+              <Button
+                variant={location === "/admin" ? "default" : "ghost"}
+                size="sm"
+                asChild
+              >
+                <Link href="/admin">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Admin
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </div>
