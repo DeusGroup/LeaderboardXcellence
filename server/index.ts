@@ -1,24 +1,21 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic } from "./vite";
-import { createServer } from "http";
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
 import cookieParser from "cookie-parser";
-import multer from "multer";
-import path from "path";
+import { createServer } from "http";
+import { Client } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { setupVite } from "./vite";
+import { registerRoutes } from "./routes";
 import { initializeWebSocket } from "./websocket";
-import { drizzle } from 'drizzle-orm/node-postgres';
-import pkg from 'pg';
-const { Client } = pkg;
+import path from "path";
 
 function log(message: string) {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  console.log(`[express] ${message}`);
+}
 
-  console.log(`${formattedTime} [express] ${message}`);
+// Serve static files in production
+function serveStatic(app: express.Express) {
+  app.use(express.static(path.resolve("dist/public")));
 }
 
 const app = express();
@@ -27,6 +24,12 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
+// Enable CORS in development
+if (process.env.NODE_ENV === "development") {
+  app.use(cors());
+}
+
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -67,17 +70,25 @@ if (!fs.existsSync(uploadsDir)) {
 (async () => {
   try {
     // Initialize database connection
-    const client = new Client({
-      connectionString: process.env.DATABASE_URL,
-    });
-    
     try {
+      const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+      });
+
       await client.connect();
       log('Successfully connected to database');
+      
+      // Initialize Drizzle with connected client
       const db = drizzle(client);
       
       // Add to global app context
       app.locals.db = db;
+
+      // Test database connection
+      const result = await client.query('SELECT NOW()');
+      log(`Database connected successfully at ${result.rows[0].now}`);
+
     } catch (dbError) {
       console.error('Database connection error:', dbError);
       throw dbError;
@@ -101,7 +112,7 @@ if (!fs.existsSync(uploadsDir)) {
     });
 
     // Setup Vite or static serving
-    if (app.get("env") === "development") {
+    if (process.env.NODE_ENV === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
