@@ -2,6 +2,18 @@ import type { Express } from "express";
 import { db } from "../db";
 import { employees, achievements, pointsHistory, employeeAchievements } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
+import multer from "multer";
+import path from "path";
+
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
 
 export function registerRoutes(app: Express) {
   app.get("/api/leaderboard", async (req, res) => {
@@ -19,12 +31,19 @@ export function registerRoutes(app: Express) {
     res.json(employee);
   });
 
-  app.put("/api/employees/:id", async (req, res) => {
+  app.put("/api/employees/:id", upload.single('image'), async (req, res) => {
     const { name, title, department } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+    
     try {
       const [updated] = await db
         .update(employees)
-        .set({ name, title, department })
+        .set({ 
+          name, 
+          title, 
+          department,
+          ...(imageUrl && { imageUrl })
+        })
         .where(eq(employees.id, parseInt(req.params.id)))
         .returning();
       res.json(updated);

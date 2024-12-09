@@ -9,6 +9,7 @@ export const employees = pgTable("employees", {
   department: text("department").notNull(),
   points: integer("points").notNull().default(0),
   isAdmin: boolean("is_admin").notNull().default(false),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
