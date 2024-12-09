@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { UserSelect } from "../components/UserSelect";
+import { AddUserDialog } from "../components/AddUserDialog";
 
 interface Employee {
   id: number;
@@ -52,9 +53,12 @@ export function Admin() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select an employee to view and edit their profile
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Select an employee to view and edit their profile
+              </p>
+              <AddUserDialog />
+            </div>
             <UserSelect currentUserId={undefined} />
           </div>
         </CardContent>

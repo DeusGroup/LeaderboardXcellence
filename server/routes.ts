@@ -55,6 +55,19 @@ export function registerRoutes(app: Express) {
     res.json(leaderboard);
   });
 
+  app.post("/api/employees", requireAuth, async (req, res) => {
+    const { name, title, department } = req.body;
+    
+    try {
+      const [employee] = await db.insert(employees)
+        .values({ name, title, department })
+        .returning();
+      res.json(employee);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create employee" });
+    }
+  });
+
   app.get("/api/employees/:id", async (req, res) => {
     const employee = await db.query.employees.findFirst({
       where: eq(employees.id, parseInt(req.params.id)),
