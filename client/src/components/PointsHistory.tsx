@@ -48,11 +48,13 @@ export function PointsHistory({ history }: PointsHistoryProps) {
                     />
                   )}
                 </div>
-                <p className="text-muted-foreground">{entry.reason}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-muted-foreground">{entry.reason}</p>
+                  <p className="text-sm text-muted-foreground ml-4">
+                    {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
-              </p>
             </div>
           </CardContent>
         </Card>

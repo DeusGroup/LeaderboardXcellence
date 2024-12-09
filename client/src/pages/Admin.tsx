@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchLeaderboard, awardPoints } from "../lib/api";
+import { fetchLeaderboard, awardPoints, fetchPointsHistory } from "../lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { UserSelect } from "../components/UserSelect";
 import { AddUserDialog } from "../components/AddUserDialog";
+import { PointsHistory } from "../components/PointsHistory";
 
 interface Employee {
   id: number;
@@ -29,6 +30,12 @@ export function Admin() {
   const { data: employees } = useQuery<Employee[]>({
     queryKey: ["leaderboard"],
     queryFn: fetchLeaderboard,
+  });
+
+  const { data: history } = useQuery({
+    queryKey: ["pointsHistory"],
+    queryFn: () => fetchPointsHistory(0), // Fetch all history
+    enabled: true,
   });
 
   const awardPointsMutation = useMutation({
@@ -88,25 +95,35 @@ export function Admin() {
           </div>
 
           {selectedEmployee && (
-            <div className="space-y-4 mt-8">
-              <Input
-                type="number"
-                placeholder="Points to award"
-                value={points}
-                onChange={(e) => setPoints(e.target.value)}
-              />
-              <Textarea
-                placeholder="Reason for points"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-              <Button 
-                onClick={() => awardPointsMutation.mutate()}
-                disabled={!points || !reason}
-              >
-                Award Points
-              </Button>
-            </div>
+            <>
+              <div className="space-y-4 mt-8">
+                <Input
+                  type="number"
+                  placeholder="Points to award"
+                  value={points}
+                  onChange={(e) => setPoints(e.target.value)}
+                />
+                <Textarea
+                  placeholder="Reason for points"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+                <Button 
+                  onClick={() => awardPointsMutation.mutate()}
+                  disabled={!points || !reason}
+                >
+                  Award Points
+                </Button>
+              </div>
+
+              {/* Points History with Edit Capability */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4">Points History</h3>
+                <PointsHistory 
+                  history={history?.filter(entry => entry.employeeId === selectedEmployee)}
+                />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

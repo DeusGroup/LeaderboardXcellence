@@ -71,8 +71,17 @@ if (!fs.existsSync(uploadsDir)) {
       connectionString: process.env.DATABASE_URL,
     });
     
-    await client.connect();
-    const db = drizzle(client);
+    try {
+      await client.connect();
+      log('Successfully connected to database');
+      const db = drizzle(client);
+      
+      // Add to global app context
+      app.locals.db = db;
+    } catch (dbError) {
+      console.error('Database connection error:', dbError);
+      throw dbError;
+    }
     
     // Create HTTP server first
     const server = createServer(app);
