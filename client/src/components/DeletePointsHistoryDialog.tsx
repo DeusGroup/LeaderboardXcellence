@@ -34,8 +34,10 @@ export function DeletePointsHistoryDialog({
   const deletePointsMutation = useMutation({
     mutationFn: () => deletePoints(historyId),
     onSuccess: () => {
+      // Invalidate all related queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["pointsHistory"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["profile", employeeId.toString()] });
       toast({
         title: "Points deleted",
         description: "The points history has been deleted successfully.",
