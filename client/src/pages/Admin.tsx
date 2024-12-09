@@ -42,9 +42,12 @@ export function Admin() {
   });
 
   const { data: history } = useQuery<PointsHistoryEntry[]>({
-    queryKey: ["pointsHistory"],
-    queryFn: () => fetchPointsHistory(0), // Fetch all history
-    enabled: true,
+    queryKey: ["pointsHistory", selectedEmployee],
+    queryFn: () => {
+      if (!selectedEmployee) return [];
+      return fetchPointsHistory(selectedEmployee);
+    },
+    enabled: !!selectedEmployee,
   });
 
   const awardPointsMutation = useMutation({
