@@ -97,6 +97,23 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.delete("/api/employees/:id", requireAuth, async (req, res) => {
+    try {
+      const [deleted] = await db
+        .delete(employees)
+        .where(eq(employees.id, parseInt(req.params.id)))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+      
+      res.json({ message: "Employee deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete employee" });
+    }
+  });
+
   app.post("/api/points/award", requireAuth, async (req, res) => {
     const { employeeId, points, reason } = req.body;
     
