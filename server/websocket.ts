@@ -7,18 +7,35 @@ import { eq } from 'drizzle-orm';
 let wss: WebSocketServer;
 
 export function initializeWebSocket(server: Server) {
-  wss = new WebSocketServer({ server });
+  wss = new WebSocketServer({ 
+    server,
+    path: '/ws' // Specify explicit WebSocket path
+  });
 
   wss.on('connection', (ws) => {
+    console.log('[WebSocket] Client connected');
+    
     ws.on('message', async (message) => {
-      const data = JSON.parse(message.toString());
-      
-      switch (data.type) {
-        case 'POINTS_UPDATE':
-          broadcastPointsUpdate(data);
-          await checkAchievements(data.employeeId);
-          break;
+      try {
+        const data = JSON.parse(message.toString());
+        
+        switch (data.type) {
+          case 'POINTS_UPDATE':
+            broadcastPointsUpdate(data);
+            await checkAchievements(data.employeeId);
+            break;
+        }
+      } catch (error) {
+        console.error('[WebSocket] Error handling message:', error);
       }
+    });
+
+    ws.on('error', (error) => {
+      console.error('[WebSocket] Client error:', error);
+    });
+
+    ws.on('close', () => {
+      console.log('[WebSocket] Client disconnected');
     });
   });
 }

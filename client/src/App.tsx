@@ -8,9 +8,26 @@ import { Login } from "./pages/Login";
 import { initWebSocket } from "./lib/websocket";
 
 export function App() {
+  // Initialize WebSocket when app mounts
   useEffect(() => {
-    initWebSocket();
-  }, []);
+    const cleanup = initWebSocket();
+    
+    // Handle page visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        cleanup(); // Clean up existing connection
+        initWebSocket(); // Establish new connection
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup function
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      cleanup();
+    };
+  }, []); // Only initialize once on mount
 
   return (
     <div className="min-h-screen bg-background">
