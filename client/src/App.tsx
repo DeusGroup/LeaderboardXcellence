@@ -36,20 +36,33 @@ export function App() {
               const [isLoading, setIsLoading] = useState(true);
               
               useEffect(() => {
-                fetch('/api/auth/check')
-                  .then(res => {
-                    if (res.ok) {
-                      setIsAuthenticated(true);
-                    } else {
+                let mounted = true;
+                const checkAuth = async () => {
+                  try {
+                    const res = await fetch('/api/auth/check');
+                    if (mounted) {
+                      if (res.ok) {
+                        setIsAuthenticated(true);
+                      } else {
+                        setLocation('/login');
+                      }
+                    }
+                  } catch (error) {
+                    if (mounted) {
                       setLocation('/login');
                     }
-                  })
-                  .catch(() => {
-                    setLocation('/login');
-                  })
-                  .finally(() => {
-                    setIsLoading(false);
-                  });
+                  } finally {
+                    if (mounted) {
+                      setIsLoading(false);
+                    }
+                  }
+                };
+                
+                checkAuth();
+                
+                return () => {
+                  mounted = false;
+                };
               }, [setLocation]);
 
               if (isLoading) {

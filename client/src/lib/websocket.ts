@@ -3,6 +3,10 @@ import { useToast } from "@/hooks/use-toast";
 let ws: WebSocket | null = null;
 
 export function initWebSocket() {
+  if (ws?.readyState === WebSocket.OPEN) {
+    return; // Already connected
+  }
+
   try {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${window.location.host}`);
@@ -18,15 +22,16 @@ export function initWebSocket() {
 
     ws.onclose = () => {
       ws = null;
-      setTimeout(() => {
-        initWebSocket();
-      }, 1000);
+      // Only attempt reconnection if the page is visible
+      if (document.visibilityState === 'visible') {
+        setTimeout(() => {
+          initWebSocket();
+        }, 3000);
+      }
     };
   } catch (error) {
     console.error('WebSocket connection error:', error);
-    setTimeout(() => {
-      initWebSocket();
-    }, 1000);
+    ws = null;
   }
 }
 
