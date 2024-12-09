@@ -40,6 +40,14 @@ export async function updatePoints(historyId: number, points: number, reason: st
   if (!res.ok) throw new Error("Failed to update points");
   return res.json();
 }
+export async function deletePoints(historyId: number) {
+  const res = await fetch(`${API_BASE}/points/${historyId}`, {
+    method: "DELETE"
+  });
+  if (!res.ok) throw new Error("Failed to delete points");
+  return res.json();
+}
+
 
 
 export async function fetchAchievements(employeeId: number) {

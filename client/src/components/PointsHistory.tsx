@@ -2,8 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
 import { useLocation } from "wouter";
 import { EditPointsDialog } from "./EditPointsDialog";
-import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { DeletePointsHistoryDialog } from "./DeletePointsHistoryDialog";
 
 interface PointsHistoryEntry {
   id: number;
@@ -42,12 +41,19 @@ export function PointsHistory({ history }: PointsHistoryProps) {
                     {entry.points > 0 ? "+" : ""}{entry.points} points
                   </p>
                   {isAdmin && (
-                    <EditPointsDialog
-                      historyId={entry.id}
-                      employeeId={entry.employeeId}
-                      currentPoints={entry.points}
-                      currentReason={entry.reason}
-                    />
+                    <div className="flex items-center gap-2">
+                      <EditPointsDialog
+                        historyId={entry.id}
+                        employeeId={entry.employeeId}
+                        currentPoints={entry.points}
+                        currentReason={entry.reason}
+                      />
+                      <DeletePointsHistoryDialog
+                        historyId={entry.id}
+                        employeeId={entry.employeeId}
+                        points={entry.points}
+                      />
+                    </div>
                   )}
                 </div>
                 <p className="text-muted-foreground">{entry.reason}</p>

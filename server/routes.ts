@@ -181,6 +181,40 @@ export function registerRoutes(app: Express) {
     res.json(result);
   });
 
+  app.delete("/api/points/:historyId", requireAuth, async (req, res) => {
+    const historyId = parseInt(req.params.historyId);
+    
+    // Start a transaction to ensure both operations succeed or fail together
+    const result = await db.transaction(async (tx) => {
+      // Get the points history record
+      const [history] = await tx
+        .select()
+        .from(pointsHistory)
+        .where(eq(pointsHistory.id, historyId));
+
+      if (!history) {
+        throw new Error("Points history record not found");
+      }
+
+      // Update employee's total points by subtracting the points
+      await tx
+        .update(employees)
+        .set({
+          points: sql`${employees.points} - ${history.points}`
+        })
+        .where(eq(employees.id, history.employeeId));
+
+      // Delete the points history record
+      await tx
+        .delete(pointsHistory)
+        .where(eq(pointsHistory.id, historyId));
+
+      return history;
+    });
+
+    res.json({ message: "Points history deleted successfully", deletedRecord: result });
+  });
+
   app.get("/api/points/history/:employeeId", async (req, res) => {
     const history = await db.query.pointsHistory.findMany({
       where: eq(pointsHistory.employeeId, parseInt(req.params.employeeId)),
