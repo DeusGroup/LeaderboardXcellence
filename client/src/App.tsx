@@ -46,60 +46,54 @@ export function App() {
         <Switch>
           <Route path="/" component={Leaderboard} />
           <Route path="/login" component={Login} />
-          <Route path="/admin/:rest*">
-            {(params) => {
-              const [, setLocation] = useLocation();
+          <Route path="/admin/profile/:id">
+            {() => {
               const [isAuthenticated, setIsAuthenticated] = useState(false);
               const [isLoading, setIsLoading] = useState(true);
-              
+              const [, setLocation] = useLocation();
+
               useEffect(() => {
-                let mounted = true;
-                const checkAuth = async () => {
-                  try {
-                    const res = await fetch('/api/auth/check');
-                    if (mounted) {
-                      if (res.ok) {
-                        setIsAuthenticated(true);
-                      } else {
-                        setLocation('/login');
-                      }
-                    }
-                  } catch (error) {
-                    if (mounted) {
+                fetch('/api/auth/check')
+                  .then(res => {
+                    if (res.ok) {
+                      setIsAuthenticated(true);
+                    } else {
                       setLocation('/login');
                     }
-                  } finally {
-                    if (mounted) {
-                      setIsLoading(false);
-                    }
-                  }
-                };
-                
-                checkAuth();
-                
-                return () => {
-                  mounted = false;
-                };
+                  })
+                  .catch(() => setLocation('/login'))
+                  .finally(() => setIsLoading(false));
               }, [setLocation]);
 
-              if (isLoading) {
-                return <div>Loading...</div>;
-              }
+              if (isLoading) return <div>Loading...</div>;
+              if (!isAuthenticated) return null;
 
-              if (!isAuthenticated) {
-                return null;
-              }
+              return <Profile />;
+            }}
+          </Route>
+          <Route path="/admin">
+            {() => {
+              const [isAuthenticated, setIsAuthenticated] = useState(false);
+              const [isLoading, setIsLoading] = useState(true);
+              const [, setLocation] = useLocation();
 
-              // Parse the rest of the path for nested routing
-              const rest = params.rest || "";
-              
-              return (
-                <Switch>
-                  <Route path="/admin/profile/:id" component={Profile} />
-                  <Route path="/admin" component={Admin} />
-                  <Route>404 - Not Found</Route>
-                </Switch>
-              );
+              useEffect(() => {
+                fetch('/api/auth/check')
+                  .then(res => {
+                    if (res.ok) {
+                      setIsAuthenticated(true);
+                    } else {
+                      setLocation('/login');
+                    }
+                  })
+                  .catch(() => setLocation('/login'))
+                  .finally(() => setIsLoading(false));
+              }, [setLocation]);
+
+              if (isLoading) return <div>Loading...</div>;
+              if (!isAuthenticated) return null;
+
+              return <Admin />;
             }}
           </Route>
           <Route>404 Page Not Found</Route>
