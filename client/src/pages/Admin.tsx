@@ -19,6 +19,15 @@ interface Employee {
   points: number;
 }
 
+interface PointsHistoryEntry {
+  id: number;
+  employeeId: number;
+  points: number;
+  reason: string;
+  createdAt: string;
+  awardedBy: number;
+}
+
 export function Admin() {
   const [, setLocation] = useLocation();
   const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
@@ -32,7 +41,7 @@ export function Admin() {
     queryFn: fetchLeaderboard,
   });
 
-  const { data: history } = useQuery({
+  const { data: history } = useQuery<PointsHistoryEntry[]>({
     queryKey: ["pointsHistory"],
     queryFn: () => fetchPointsHistory(0), // Fetch all history
     enabled: true,
