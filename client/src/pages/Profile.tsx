@@ -7,6 +7,7 @@ import { EditProfileDialog } from "../components/EditProfileDialog";
 import { DeleteUserDialog } from "../components/DeleteUserDialog";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { PerformanceChart } from "../components/PerformanceChart";
 
 export function Profile() {
   const { id } = useParams();
@@ -97,7 +98,8 @@ export function Profile() {
         </CardHeader>
       </Card>
 
-      <div className="mt-8">
+      <div className="space-y-8 mt-8">
+        <PerformanceChart history={history} />
         <PointsHistory history={history} />
       </div>
     </div>
