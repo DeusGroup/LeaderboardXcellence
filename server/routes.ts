@@ -27,7 +27,7 @@ export function registerRoutes(app: Express) {
     
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Welcome1";
     if (password === ADMIN_PASSWORD) {
-      const token = jwt.sign({}, process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'), {
+      const token = jwt.sign({}, process.env.JWT_SECRET || "development-secret-key-change-in-production", {
         expiresIn: "24h",
       });
       

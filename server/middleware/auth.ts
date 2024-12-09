@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-import crypto from 'crypto';
-
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+// Use a fallback secret for development
+const JWT_SECRET = process.env.JWT_SECRET || "development-secret-key-change-in-production";
 
 export interface AuthRequest extends Request {
   isAuthenticated?: boolean;
