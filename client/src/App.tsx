@@ -7,6 +7,39 @@ import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
 import { initWebSocket } from "./lib/websocket";
 
+function ProtectedRoute({ component: Component, ...props }: { component: React.ComponentType<any> }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    fetch('/api/auth/check')
+      .then(res => {
+        if (res.ok) {
+          setIsAuthenticated(true);
+        } else {
+          setLocation('/login');
+        }
+      })
+      .catch(() => setLocation('/login'))
+      .finally(() => setIsLoading(false));
+  }, [setLocation]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <p className="text-lg text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <Component {...props} />;
+}
+
 export function App() {
   // Initialize WebSocket when app mounts
   useEffect(() => {
@@ -15,19 +48,18 @@ export function App() {
     // Handle page visibility changes
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        cleanup(); // Clean up existing connection
-        initWebSocket(); // Establish new connection
+        cleanup();
+        initWebSocket();
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Cleanup function
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       cleanup();
     };
-  }, []); // Only initialize once on mount
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,56 +79,16 @@ export function App() {
           <Route path="/" component={Leaderboard} />
           <Route path="/login" component={Login} />
           <Route path="/admin/profile/:id">
-            {() => {
-              const [isAuthenticated, setIsAuthenticated] = useState(false);
-              const [isLoading, setIsLoading] = useState(true);
-              const [, setLocation] = useLocation();
-
-              useEffect(() => {
-                fetch('/api/auth/check')
-                  .then(res => {
-                    if (res.ok) {
-                      setIsAuthenticated(true);
-                    } else {
-                      setLocation('/login');
-                    }
-                  })
-                  .catch(() => setLocation('/login'))
-                  .finally(() => setIsLoading(false));
-              }, [setLocation]);
-
-              if (isLoading) return <div>Loading...</div>;
-              if (!isAuthenticated) return null;
-
-              return <Profile />;
-            }}
+            {({ id }) => <ProtectedRoute component={Profile} id={id} />}
           </Route>
           <Route path="/admin">
-            {() => {
-              const [isAuthenticated, setIsAuthenticated] = useState(false);
-              const [isLoading, setIsLoading] = useState(true);
-              const [, setLocation] = useLocation();
-
-              useEffect(() => {
-                fetch('/api/auth/check')
-                  .then(res => {
-                    if (res.ok) {
-                      setIsAuthenticated(true);
-                    } else {
-                      setLocation('/login');
-                    }
-                  })
-                  .catch(() => setLocation('/login'))
-                  .finally(() => setIsLoading(false));
-              }, [setLocation]);
-
-              if (isLoading) return <div>Loading...</div>;
-              if (!isAuthenticated) return null;
-
-              return <Admin />;
-            }}
+            <ProtectedRoute component={Admin} />
           </Route>
-          <Route>404 Page Not Found</Route>
+          <Route>
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-lg text-muted-foreground">404 - Page Not Found</p>
+            </div>
+          </Route>
         </Switch>
       </main>
     </div>
