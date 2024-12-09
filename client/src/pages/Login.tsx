@@ -7,12 +7,22 @@ import { useToast } from "@/hooks/use-toast";
 
 export function Login() {
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password.trim()) {
+      toast({
+        title: "Error",
+        description: "Password is required",
+        variant: "destructive",
+      });
+      return;
+    }
     
+    setIsLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -27,18 +37,21 @@ export function Login() {
         });
         setLocation("/admin");
       } else {
+        const data = await response.json();
         toast({
           title: "Error",
-          description: "Invalid password",
+          description: data.message || "Invalid password",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to login",
+        description: "Failed to login. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -58,8 +71,12 @@ export function Login() {
                 placeholder="Enter password"
               />
             </div>
-            <Button type="submit" className="w-full">
-              Login
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading}
+            >
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
         </CardContent>

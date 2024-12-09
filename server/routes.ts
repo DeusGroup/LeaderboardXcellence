@@ -25,8 +25,9 @@ export function registerRoutes(app: Express) {
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
     
-    if (password === "Welcome1") {
-      const token = jwt.sign({}, process.env.JWT_SECRET || "your-secret-key", {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Welcome1";
+    if (password === ADMIN_PASSWORD) {
+      const token = jwt.sign({}, process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'), {
         expiresIn: "24h",
       });
       

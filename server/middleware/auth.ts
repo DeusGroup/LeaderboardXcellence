@@ -1,10 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+import crypto from 'crypto';
+
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 export interface AuthRequest extends Request {
   isAuthenticated?: boolean;
+  tokenData?: any;
 }
 
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -15,10 +18,24 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
 
   try {
-    jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.isAuthenticated = true;
+    req.tokenData = decoded;
+    
+    // Check token expiration
+    const tokenExp = (decoded as any).exp * 1000; // Convert to milliseconds
+    if (Date.now() >= tokenExp) {
+      return res.status(401).json({ message: "Token has expired" });
+    }
+    
     next();
   } catch (error) {
-    res.status(401).json({ message: "Invalid or expired token" });
+    if (error instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({ message: "Invalid token" });
+    } else if (error instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ message: "Token has expired" });
+    } else {
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 }
