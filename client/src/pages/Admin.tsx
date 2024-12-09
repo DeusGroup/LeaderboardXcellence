@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserSelect } from "../components/UserSelect";
 
 interface Employee {
@@ -47,77 +46,66 @@ export function Admin() {
 
   return (
     <div className="space-y-8">
-      <Tabs defaultValue="award-points" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="award-points">Award Points</TabsTrigger>
-          <TabsTrigger value="profiles">Manage Profiles</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="award-points">
-          <Card>
-            <CardHeader>
-              <CardTitle>Award Points</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {employees?.map((employee) => (
-                  <Button
-                    key={employee.id}
-                    variant={selectedEmployee === employee.id ? "default" : "outline"}
-                    onClick={() => setSelectedEmployee(employee.id)}
-                    className="justify-start"
-                  >
-                    <img
-                      src={`https://i.pravatar.cc/32?u=${employee.id}`}
-                      alt=""
-                      className="w-8 h-8 rounded-full mr-2"
-                    />
-                    {employee.name}
-                  </Button>
-                ))}
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Manage Profiles</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select an employee to view and edit their profile
+            </p>
+            <UserSelect currentUserId={undefined} />
+          </div>
+        </CardContent>
+      </Card>
 
-              {selectedEmployee && (
-                <div className="space-y-4 mt-8">
-                  <Input
-                    type="number"
-                    placeholder="Points to award"
-                    value={points}
-                    onChange={(e) => setPoints(e.target.value)}
-                  />
-                  <Textarea
-                    placeholder="Reason for points"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                  <Button 
-                    onClick={() => awardPointsMutation.mutate()}
-                    disabled={!points || !reason}
-                  >
-                    Award Points
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="profiles">
-          <Card>
-            <CardHeader>
-              <CardTitle>Manage Profiles</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Select an employee to view and edit their profile
-                </p>
-                <UserSelect currentUserId={undefined} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Card>
+        <CardHeader>
+          <CardTitle>Award Points</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {employees?.map((employee) => (
+              <Button
+                key={employee.id}
+                variant={selectedEmployee === employee.id ? "default" : "outline"}
+                onClick={() => setSelectedEmployee(employee.id)}
+                className="justify-start"
+              >
+                <img
+                  src={`https://i.pravatar.cc/32?u=${employee.id}`}
+                  alt=""
+                  className="w-8 h-8 rounded-full mr-2"
+                />
+                {employee.name}
+              </Button>
+            ))}
+          </div>
+
+          {selectedEmployee && (
+            <div className="space-y-4 mt-8">
+              <Input
+                type="number"
+                placeholder="Points to award"
+                value={points}
+                onChange={(e) => setPoints(e.target.value)}
+              />
+              <Textarea
+                placeholder="Reason for points"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <Button 
+                onClick={() => awardPointsMutation.mutate()}
+                disabled={!points || !reason}
+              >
+                Award Points
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
