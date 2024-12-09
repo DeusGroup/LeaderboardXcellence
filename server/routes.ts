@@ -196,6 +196,21 @@ export function registerRoutes(app: Express) {
         throw new Error("Points history record not found");
       }
 
+      // Get current employee points
+      const [employee] = await tx
+        .select()
+        .from(employees)
+        .where(eq(employees.id, history.employeeId));
+
+      if (!employee) {
+        throw new Error("Employee not found");
+      }
+
+      // Check if deletion would result in negative points
+      if (employee.points < history.points) {
+        throw new Error("Cannot delete points: would result in negative balance");
+      }
+
       // Update employee's total points by subtracting the points
       await tx
         .update(employees)

@@ -44,10 +44,12 @@ export function DeletePointsHistoryDialog({
       });
       setOpen(false);
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to delete points. Please try again.",
+        description: error instanceof Error && error.message.includes("negative balance")
+          ? "Cannot delete points: This would result in a negative points balance"
+          : "Failed to delete points. Please try again.",
         variant: "destructive",
       });
     },
