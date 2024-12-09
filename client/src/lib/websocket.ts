@@ -98,28 +98,15 @@ export function sendWebSocketMessage(message: any) {
   }
 }
 
-function handleWebSocketMessage(data: any) {
-  const { toast } = useToast();
+type MessageHandler = (data: any) => void;
+let messageHandler: MessageHandler | null = null;
 
-  switch (data.type) {
-    case "POINTS_AWARDED":
-      toast({
-        title: "Points Awarded!",
-        description: `You've earned ${data.points} points for ${data.reason}`,
-      });
-      break;
-    case "ACHIEVEMENT_UNLOCKED":
-      toast({
-        title: "Achievement Unlocked!",
-        description: data.achievementName,
-        variant: "default",
-      });
-      break;
-    case "RANK_CHANGED":
-      toast({
-        title: "Rank Updated!",
-        description: `You're now ranked #${data.newRank}`,
-      });
-      break;
+export function setWebSocketMessageHandler(handler: MessageHandler) {
+  messageHandler = handler;
+}
+
+function handleWebSocketMessage(data: any) {
+  if (messageHandler) {
+    messageHandler(data);
   }
 }

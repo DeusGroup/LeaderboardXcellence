@@ -5,7 +5,8 @@ import { Leaderboard } from "./pages/Leaderboard";
 import { Profile } from "./pages/Profile";
 import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
-import { initWebSocket } from "./lib/websocket";
+import { initWebSocket, setWebSocketMessageHandler } from "./lib/websocket";
+import { useToast } from "@/hooks/use-toast";
 
 function ProtectedRoute({ component: Component, ...props }: { component: React.ComponentType<any>, [key: string]: any }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,7 +43,34 @@ function ProtectedRoute({ component: Component, ...props }: { component: React.C
 
 export function App() {
   // Initialize WebSocket when app mounts
+  const { toast } = useToast();
+
   useEffect(() => {
+    const handleWebSocketMessage = (data: any) => {
+      switch (data.type) {
+        case "POINTS_AWARDED":
+          toast({
+            title: "Points Awarded!",
+            description: `You've earned ${data.points} points for ${data.reason}`,
+          });
+          break;
+        case "ACHIEVEMENT_UNLOCKED":
+          toast({
+            title: "Achievement Unlocked!",
+            description: data.achievementName,
+            variant: "default",
+          });
+          break;
+        case "RANK_CHANGED":
+          toast({
+            title: "Rank Updated!",
+            description: `You're now ranked #${data.newRank}`,
+          });
+          break;
+      }
+    };
+
+    setWebSocketMessageHandler(handleWebSocketMessage);
     const cleanup = initWebSocket();
     
     // Handle page visibility changes
@@ -57,9 +85,10 @@ export function App() {
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      setWebSocketMessageHandler(null);
       cleanup();
     };
-  }, []);
+  }, [toast]);
 
   return (
     <div className="min-h-screen bg-background">
