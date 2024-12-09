@@ -1,6 +1,6 @@
 import { Navbar } from "./components/Navbar";
 import { Route, Switch, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Leaderboard } from "./pages/Leaderboard";
 import { Profile } from "./pages/Profile";
 import { Admin } from "./pages/Admin";
@@ -29,24 +29,45 @@ export function App() {
         <Switch>
           <Route path="/" component={Leaderboard} />
           <Route path="/login" component={Login} />
-          <Route path="/admin/profile/:id">
-            {(params) => {
+          <Route path="/admin">
+            {() => {
               const [, setLocation] = useLocation();
+              const [isAuthenticated, setIsAuthenticated] = useState(false);
+              const [isLoading, setIsLoading] = useState(true);
+              
               useEffect(() => {
                 fetch('/api/auth/check')
                   .then(res => {
-                    if (!res.ok) {
+                    if (res.ok) {
+                      setIsAuthenticated(true);
+                    } else {
                       setLocation('/login');
                     }
                   })
                   .catch(() => {
                     setLocation('/login');
+                  })
+                  .finally(() => {
+                    setIsLoading(false);
                   });
               }, [setLocation]);
-              return <Profile />;
+
+              if (isLoading) {
+                return <div>Loading...</div>;
+              }
+
+              if (!isAuthenticated) {
+                return null;
+              }
+
+              return (
+                <Switch>
+                  <Route path="/admin/profile/:id" component={Profile} />
+                  <Route path="/admin" component={Admin} />
+                </Switch>
+              );
             }}
           </Route>
-          <Route path="/admin" component={Admin} />
           <Route>404 Page Not Found</Route>
         </Switch>
       </main>

@@ -37,17 +37,7 @@ export function Profile() {
     enabled: !!id,
   });
 
-  useEffect(() => {
-    fetch('/api/auth/check')
-      .then(res => {
-        if (!res.ok) {
-          setLocation('/login');
-        }
-      })
-      .catch(() => {
-        setLocation('/login');
-      });
-  }, [setLocation]);
+  // Authentication is handled at the route level in App.tsx
 
   if (isProfileLoading) return (
     <div className="space-y-4">

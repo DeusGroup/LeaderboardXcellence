@@ -28,9 +28,9 @@ export function Navbar() {
               size="sm"
               asChild
             >
-              <Link href="/admin/profile/1">
+              <Link href="/admin">
                 <User className="mr-2 h-4 w-4" />
-                Profile
+                Admin Panel
               </Link>
             </Button>
             {location !== "/login" && (
