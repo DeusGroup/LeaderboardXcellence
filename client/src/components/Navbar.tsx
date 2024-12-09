@@ -23,16 +23,6 @@ export function Navbar() {
             >
               <Link href="/">Leaderboard</Link>
             </Button>
-            <Button
-              variant={location.startsWith("/profile") ? "default" : "ghost"}
-              size="sm"
-              asChild
-            >
-              <Link href="/admin">
-                <User className="mr-2 h-4 w-4" />
-                Admin Panel
-              </Link>
-            </Button>
             {location !== "/login" && (
               <Button
                 variant={location === "/admin" ? "default" : "ghost"}
@@ -41,7 +31,7 @@ export function Navbar() {
               >
                 <Link href="/admin">
                   <Settings className="mr-2 h-4 w-4" />
-                  Admin
+                  Admin Panel
                 </Link>
               </Button>
             )}
