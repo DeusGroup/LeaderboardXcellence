@@ -38,10 +38,12 @@ export function EditPointsDialog({
       });
       setOpen(false);
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update points. Please try again.",
+        description: error instanceof Error && error.message.includes("negative balance")
+          ? "Cannot update points: This would result in a negative points balance"
+          : "Failed to update points. Please try again.",
         variant: "destructive",
       });
     },

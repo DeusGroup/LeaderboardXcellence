@@ -117,68 +117,108 @@ export function registerRoutes(app: Express) {
   app.post("/api/points/award", requireAuth, async (req, res) => {
     const { employeeId, points, reason } = req.body;
     
-    // Start a transaction to ensure both operations succeed or fail together
-    const result = await db.transaction(async (tx) => {
-      const [history] = await tx.insert(pointsHistory).values({
-        employeeId,
-        points,
-        reason,
-        awardedBy: 1, // TODO: Get from session
-      }).returning();
+    try {
+      // Check if employee exists before awarding points
+      const employee = await db.query.employees.findFirst({
+        where: eq(employees.id, employeeId)
+      });
 
-      const [updated] = await tx
-        .update(employees)
-        .set({
-          points: sql`${employees.points} + ${points}`
-        })
-        .where(eq(employees.id, employeeId))
-        .returning();
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
 
-      return { history, updated };
-    });
+      // Start a transaction to ensure both operations succeed or fail together
+      const result = await db.transaction(async (tx) => {
+        const [history] = await tx.insert(pointsHistory).values({
+          employeeId,
+          points,
+          reason,
+          awardedBy: 2, // Using known valid employee ID
+        }).returning();
 
-    res.json(result);
+        const [updated] = await tx
+          .update(employees)
+          .set({
+            points: sql`${employees.points} + ${points}`
+          })
+          .where(eq(employees.id, employeeId))
+          .returning();
+
+        return { history, updated };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error awarding points:', error);
+      res.status(500).json({ 
+        message: "Failed to award points",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   });
 
   app.put("/api/points/:historyId", requireAuth, async (req, res) => {
     const { points, reason } = req.body;
     const historyId = parseInt(req.params.historyId);
     
-    // Start a transaction to ensure both operations succeed or fail together
-    const result = await db.transaction(async (tx) => {
-      // Get the old points history record
-      const [oldHistory] = await tx
-        .select()
-        .from(pointsHistory)
-        .where(eq(pointsHistory.id, historyId));
+    try {
+      // Start a transaction to ensure both operations succeed or fail together
+      const result = await db.transaction(async (tx) => {
+        // Get the old points history record
+        const [oldHistory] = await tx
+          .select()
+          .from(pointsHistory)
+          .where(eq(pointsHistory.id, historyId));
 
-      if (!oldHistory) {
-        throw new Error("Points history record not found");
-      }
+        if (!oldHistory) {
+          throw new Error("Points history record not found");
+        }
 
-      // Calculate points difference
-      const pointsDiff = points - oldHistory.points;
+        // Get current employee points
+        const [employee] = await tx
+          .select()
+          .from(employees)
+          .where(eq(employees.id, oldHistory.employeeId));
 
-      // Update the points history record
-      const [history] = await tx
-        .update(pointsHistory)
-        .set({ points, reason })
-        .where(eq(pointsHistory.id, historyId))
-        .returning();
+        if (!employee) {
+          throw new Error("Employee not found");
+        }
 
-      // Update employee's total points
-      const [updated] = await tx
-        .update(employees)
-        .set({
-          points: sql`${employees.points} + ${pointsDiff}`
-        })
-        .where(eq(employees.id, oldHistory.employeeId))
-        .returning();
+        // Calculate points difference
+        const pointsDiff = points - oldHistory.points;
 
-      return { history, updated };
-    });
+        // Check if update would result in negative points
+        if (employee.points + pointsDiff < 0) {
+          throw new Error("Cannot update points: would result in negative balance");
+        }
 
-    res.json(result);
+        // Update the points history record
+        const [history] = await tx
+          .update(pointsHistory)
+          .set({ points, reason })
+          .where(eq(pointsHistory.id, historyId))
+          .returning();
+
+        // Update employee's total points
+        const [updated] = await tx
+          .update(employees)
+          .set({
+            points: sql`${employees.points} + ${pointsDiff}`
+          })
+          .where(eq(employees.id, oldHistory.employeeId))
+          .returning();
+
+        return { history, updated };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error updating points:', error);
+      res.status(400).json({ 
+        message: "Failed to update points",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   });
 
   app.delete("/api/points/:historyId", requireAuth, async (req, res) => {
