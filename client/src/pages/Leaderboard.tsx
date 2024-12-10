@@ -24,7 +24,17 @@ interface Employee {
 export function Leaderboard() {
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["leaderboard"],
-    queryFn: fetchLeaderboard,
+    queryFn: async () => {
+      const employees = await fetchLeaderboard();
+      // Fetch points history for each employee
+      const employeesWithHistory = await Promise.all(
+        employees.map(async (employee) => ({
+          ...employee,
+          pointsHistory: await fetchPointsHistory(employee.id)
+        }))
+      );
+      return employeesWithHistory;
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 

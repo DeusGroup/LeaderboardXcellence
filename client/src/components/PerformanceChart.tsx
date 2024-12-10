@@ -39,26 +39,46 @@ export function PerformanceChart({
 
   const chartData = useMemo(() => {
     if (aggregated && data.length > 0) {
-      // Create a map of dates to employee points
+      // Create a map of dates to cumulative employee points
       const dateMap = new Map<string, Record<string, number>>();
       
       // Process each employee's history
       data.forEach(({ name, history: empHistory }) => {
         if (!empHistory) return;
         
-        empHistory.forEach((entry) => {
-          const dateKey = new Date(entry.createdAt).toISOString().split('T')[0];
-          
-          if (!dateMap.has(dateKey)) {
-            const initialData: Record<string, number> = {};
-            data.forEach(({ name: empName }) => {
-              initialData[empName] = 0;
-            });
-            dateMap.set(dateKey, initialData);
+        let cumulativePoints = 0;
+        empHistory
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+          .forEach((entry) => {
+            const dateKey = new Date(entry.createdAt).toISOString().split('T')[0];
+            cumulativePoints += entry.points;
+            
+            if (!dateMap.has(dateKey)) {
+              const initialData: Record<string, number> = {};
+              data.forEach(({ name: empName }) => {
+                initialData[empName] = 0;
+              });
+              dateMap.set(dateKey, initialData);
+            }
+            
+            const dateData = dateMap.get(dateKey)!;
+            dateData[name] = cumulativePoints;
+          });
+      });
+
+      // Fill in missing dates with previous cumulative values
+      const sortedDates = Array.from(dateMap.keys()).sort();
+      sortedDates.forEach((dateStr, index) => {
+        if (index === 0) return;
+        
+        const currentData = dateMap.get(dateStr)!;
+        const prevData = dateMap.get(sortedDates[index - 1])!;
+        
+        // Copy previous values if not updated
+        Object.keys(currentData).forEach(name => {
+          if (currentData[name] === 0) {
+            currentData[name] = prevData[name];
           }
-          
-          const dateData = dateMap.get(dateKey)!;
-          dateData[name] = (dateData[name] || 0) + entry.points;
         });
       });
 
