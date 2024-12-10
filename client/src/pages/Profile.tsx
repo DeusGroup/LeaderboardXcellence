@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useLocation, Link } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { fetchProfile, fetchPointsHistory } from "../lib/api";
 import { PointsHistory } from "../components/PointsHistory";
 import { UserSelect } from "../components/UserSelect";
 import { EditProfileDialog } from "../components/EditProfileDialog";
 import { DeleteUserDialog } from "../components/DeleteUserDialog";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PerformanceChart } from "../components/PerformanceChart";
 
@@ -22,15 +22,6 @@ export function Profile() {
     enabled: !!id,
   });
 
-  interface Achievement {
-    id: number;
-    name: string;
-    description: string;
-    pointsRequired: number;
-    badgeImageUrl: string;
-    earnedAt: string | null;
-  }
-
   const { data: history } = useQuery({
     queryKey: ["pointsHistory", id],
     queryFn: () => {
@@ -39,8 +30,6 @@ export function Profile() {
     },
     enabled: !!id,
   });
-
-  // Authentication is handled at the route level in App.tsx
 
   if (isProfileLoading) return (
     <div className="space-y-4">
@@ -99,8 +88,25 @@ export function Profile() {
       </Card>
 
       <div className="space-y-8 mt-8">
-        <PerformanceChart history={history} />
-        <PointsHistory history={history} />
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Trend</CardTitle>
+            <CardDescription>
+              Track your point earnings and achievements over time
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PerformanceChart history={history} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Points History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PointsHistory history={history} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

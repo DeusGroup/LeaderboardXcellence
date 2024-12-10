@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid } from "recharts";
 import { formatDistanceToNow } from "date-fns";
@@ -19,39 +18,60 @@ interface PerformanceChartProps {
     name: string;
     history: PointsHistoryEntry[];
   }>;
+  height?: number;
 }
 
 export function PerformanceChart({ 
   history = [], 
-  title = "Performance Trend",
+  title,
   aggregated = false,
-  data = []
+  data = [],
+  height = 300
 }: PerformanceChartProps) {
+  // Handle empty data states
+  if ((history.length === 0 && !aggregated) || (aggregated && data.every(d => !d.history?.length))) {
+    return (
+      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+        No performance data available
+      </div>
+    );
+  }
+
   const chartData = useMemo(() => {
     if (aggregated && data.length > 0) {
       // Create a map of dates to employee points
-      const dateMap = new Map<string, { [key: string]: number }>();
+      const dateMap = new Map<string, Record<string, number>>();
       
-      data.forEach(({ name, history }) => {
-        history.forEach((entry) => {
-          const date = new Date(entry.createdAt).toISOString().split('T')[0];
-          if (!dateMap.has(date)) {
-            dateMap.set(date, {});
+      // Process each employee's history
+      data.forEach(({ name, history: empHistory }) => {
+        if (!empHistory) return;
+        
+        empHistory.forEach((entry) => {
+          const dateKey = new Date(entry.createdAt).toISOString().split('T')[0];
+          
+          if (!dateMap.has(dateKey)) {
+            const initialData: Record<string, number> = {};
+            data.forEach(({ name: empName }) => {
+              initialData[empName] = 0;
+            });
+            dateMap.set(dateKey, initialData);
           }
-          const dateData = dateMap.get(date)!;
-          dateData[name] = entry.points;
+          
+          const dateData = dateMap.get(dateKey)!;
+          dateData[name] = (dateData[name] || 0) + entry.points;
         });
       });
 
       // Convert map to array and sort by date
       return Array.from(dateMap.entries())
-        .map(([date, points]) => ({
-          date: new Date(date),
+        .map(([dateStr, points]) => ({
+          date: new Date(dateStr),
           ...points
         }))
         .sort((a, b) => a.date.getTime() - b.date.getTime());
     }
 
+    // Single user chart data
     return history
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       .map((entry) => ({
@@ -72,73 +92,77 @@ export function PerformanceChart({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ChartContainer config={config}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(date) => formatDistanceToNow(date, { addSuffix: true })}
+    <div className="w-full" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ChartContainer config={config}>
+          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+            <XAxis
+              dataKey="date"
+              tickFormatter={(date: Date) => formatDistanceToNow(date, { addSuffix: true })}
+              height={50}
+              tick={{ fontSize: 12 }}
+              tickMargin={8}
+            />
+            <YAxis
+              width={50}
+              tick={{ fontSize: 12 }}
+              tickMargin={8}
+              label={{ value: 'Points', angle: -90, position: 'insideLeft', offset: 0 }}
+            />
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            {aggregated ? (
+              data.map(({ name }, index) => (
+                <Line
+                  key={name}
+                  type="monotone"
+                  dataKey={name}
+                  stroke={`hsl(var(--chart-${(index % 5) + 1}))`}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
                 />
-                <YAxis />
-                <CartesianGrid strokeDasharray="3 3" />
-                {aggregated ? (
-                  data.map(({ name }, index) => (
-                    <Line
-                      key={name}
-                      type="monotone"
-                      dataKey={name}
-                      stroke={`hsl(var(--chart-${(index % 5) + 1}))`}
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                    />
-                  ))
-                ) : (
-                  <Line
-                    type="monotone"
-                    dataKey="points"
-                    stroke="var(--color-points)"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                )}
-                <ChartTooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const data = payload[0].payload;
-                    return (
-                      <ChartTooltipContent>
-                        <div className="space-y-1">
-                          {aggregated ? (
-                            payload.map((entry) => (
-                              <p key={entry.dataKey} className="text-sm font-medium">
-                                {entry.dataKey}: {entry.value} Points
-                              </p>
-                            ))
-                          ) : (
-                            <>
-                              <p className="text-sm font-medium">{data.points} Points</p>
-                              <p className="text-xs text-muted-foreground">{data.reason}</p>
-                            </>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(data.date, { addSuffix: true })}
+              ))
+            ) : (
+              <Line
+                type="monotone"
+                dataKey="points"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            )}
+            <ChartTooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const data = payload[0].payload;
+
+                return (
+                  <ChartTooltipContent>
+                    <div className="space-y-1">
+                      {aggregated ? (
+                        payload.map((entry) => (
+                          <p key={entry.dataKey} className="text-sm font-medium">
+                            {entry.dataKey}: {entry.value} Points
                           </p>
-                        </div>
-                      </ChartTooltipContent>
-                    );
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </div>
-      </CardContent>
-    </Card>
+                        ))
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium">{data.points} Points</p>
+                          <p className="text-xs text-muted-foreground">{data.reason}</p>
+                        </>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(data.date, { addSuffix: true })}
+                      </p>
+                    </div>
+                  </ChartTooltipContent>
+                );
+              }}
+            />
+          </LineChart>
+        </ChartContainer>
+      </ResponsiveContainer>
+    </div>
   );
 }

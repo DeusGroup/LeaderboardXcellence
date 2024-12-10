@@ -13,10 +13,11 @@ interface Employee {
   name: string;
   title: string;
   department: string;
+  specialization: string;
+  level: string;
   points: number;
   monthlyPoints: number;
   streak: number;
-  specialization: string;
   pointsHistory?: Array<{
     id: number;
     points: number;
@@ -140,19 +141,29 @@ export function Leaderboard() {
           ))}
         </div>
       ) : (
-        <>
-          <PerformanceChart
-            title="Team Performance Trends"
-            aggregated
-            data={employees.slice(0, 5).map(employee => ({
-              name: employee.name,
-              history: employee.pointsHistory || []
-            }))}
-          />
-          <div className="mt-8">
-            <LeaderboardTable employees={sortedAndFilteredEmployees} />
-          </div>
-        </>
+        <div className="space-y-8">
+          <LeaderboardTable employees={sortedAndFilteredEmployees} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Performance Trends</CardTitle>
+              <CardDescription>
+                Compare performance trends of top performers over time
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <PerformanceChart
+                height={400}
+                aggregated
+                data={sortedAndFilteredEmployees
+                  .slice(0, 5)
+                  .map(employee => ({
+                    name: employee.name,
+                    history: employee.pointsHistory || []
+                  }))}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
