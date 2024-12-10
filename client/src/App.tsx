@@ -85,7 +85,7 @@ export function App() {
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      setWebSocketMessageHandler(null);
+      setWebSocketMessageHandler(() => {}); // Use empty function instead of null
       cleanup();
     };
   }, [toast]);

@@ -21,8 +21,8 @@ export function Leaderboard() {
   });
 
   const sortedAndFilteredEmployees = employees
-    .filter(employee => filterBy === "all" || employee.specialization === filterBy)
-    .sort((a, b) => b[sortBy] - a[sortBy]);
+    .filter((employee: { specialization: string }) => filterBy === "all" || employee.specialization === filterBy)
+    .sort((a: { [key: string]: number }, b: { [key: string]: number }) => b[sortBy] - a[sortBy]);
 
   const statsCards = [
     {

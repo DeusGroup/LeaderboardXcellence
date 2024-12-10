@@ -156,12 +156,13 @@ if (!fs.existsSync(uploadsDir)) {
       const result = await client.query('SELECT NOW()');
       log(`Database connected successfully at ${result.rows[0].now}`);
 
-    } catch (dbError) {
-      log(`Failed to connect to database: ${dbError.message}`);
+    } catch (error: unknown) {
+      const dbError = error as { message?: string; code?: string };
+      log(`Failed to connect to database: ${dbError.message || 'Unknown error'}`);
       if (dbError.code) {
         log(`Error code: ${dbError.code}`);
       }
-      throw new Error(`Database connection failed: ${dbError.message}`);
+      throw new Error(`Database connection failed: ${dbError.message || 'Unknown error'}`);
     }
     
     // Create HTTP server first
