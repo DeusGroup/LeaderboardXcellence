@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchLeaderboard } from "../lib/api";
+import { fetchLeaderboard, fetchPointsHistory } from "../lib/api";
 import { LeaderboardTable } from "../components/LeaderboardTable";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
@@ -28,7 +28,7 @@ export function Leaderboard() {
       const employees = await fetchLeaderboard();
       // Fetch points history for each employee
       const employeesWithHistory = await Promise.all(
-        employees.map(async (employee) => ({
+        employees.map(async (employee: Employee) => ({
           ...employee,
           pointsHistory: await fetchPointsHistory(employee.id)
         }))
