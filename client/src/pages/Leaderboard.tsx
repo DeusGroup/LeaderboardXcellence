@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { fetchLeaderboard, fetchPointsHistory } from "../lib/api";
 import { LeaderboardTable } from "../components/LeaderboardTable";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -22,21 +22,29 @@ interface Employee {
 }
 
 export function Leaderboard() {
-  const { data: employees = [], isLoading } = useQuery<Employee[]>({
-    queryKey: ["leaderboard"],
-    queryFn: async () => {
-      const employees = await fetchLeaderboard();
-      // Fetch points history for each employee
-      const employeesWithHistory = await Promise.all(
-        employees.map(async (employee: Employee) => ({
-          ...employee,
-          pointsHistory: await fetchPointsHistory(employee.id)
-        }))
-      );
-      return employeesWithHistory;
-    },
+  const leaderboardQuery = useQuery({
+    queryKey: ["leaderboard"] as const,
+    queryFn: fetchLeaderboard,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  const employees = leaderboardQuery.data || [];
+  const isLoading = leaderboardQuery.isLoading;
+
+  // Fetch points history for top 5 employees
+  const top5Employees = employees.slice(0, 5);
+  const historyResults = useQueries({
+    queries: top5Employees.map((employee) => ({
+      queryKey: ["pointsHistory", employee.id] as const,
+      queryFn: () => fetchPointsHistory(employee.id),
+      enabled: Boolean(employee.id),
+    })),
+  });
+
+  const employeesWithHistory = top5Employees.map((employee, index) => ({
+    name: employee.name,
+    history: historyResults[index]?.data ?? [],
+  }));
 
   return (
     <div className="space-y-8">
@@ -72,12 +80,7 @@ export function Leaderboard() {
               <PerformanceChart
                 height={400}
                 aggregated
-                data={employees
-                  .slice(0, 5)
-                  .map(employee => ({
-                    name: employee.name,
-                    history: employee.pointsHistory || []
-                  }))}
+                data={employeesWithHistory}
               />
             </CardContent>
           </Card>

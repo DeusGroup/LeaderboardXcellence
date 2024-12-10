@@ -28,42 +28,41 @@ export function PerformanceChart({
   data = [],
   height = 300
 }: PerformanceChartProps) {
-  // Handle empty data states
-  if ((history.length === 0 && !aggregated) || (aggregated && data.every(d => !d.history?.length))) {
-    return (
-      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-        No performance data available
-      </div>
-    );
-  }
-
   const chartData = useMemo(() => {
     if (aggregated && data.length > 0) {
-      // Get all dates from all employees
-      const allDates = Array.from(
-        new Set(
-          data.flatMap(({ history }) => 
-            (history || []).map(entry => 
-              new Date(entry.createdAt).toISOString().split('T')[0]
-            )
-          )
-        )
-      ).sort();
+      // Get all points history entries
+      const allEntries = data.flatMap(({ name, history }) => 
+        history.map(entry => ({
+          ...entry,
+          employeeName: name,
+          date: new Date(entry.createdAt)
+        }))
+      );
 
-      // Prepare the chart data
-      return allDates.map(dateStr => {
-        const date = new Date(dateStr);
+      // Sort entries by date
+      allEntries.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      // Get unique dates for x-axis
+      const uniqueDates = Array.from(
+        new Set(allEntries.map(entry => entry.date.toISOString().split('T')[0]))
+      ).map(dateStr => new Date(dateStr));
+
+      // Calculate cumulative points for each employee
+      return uniqueDates.map(date => {
         const dataPoint: Record<string, any> = { date };
         
-        // Calculate cumulative points for each employee up to this date
-        data.forEach(({ name, history }) => {
-          if (!history) return;
-          
-          dataPoint[name] = history
-            .filter(entry => new Date(entry.createdAt) <= date)
-            .reduce((sum, entry) => sum + entry.points, 0);
+        data.forEach(({ name }) => {
+          const entriesUpToDate = allEntries.filter(
+            entry => 
+              entry.employeeName === name && 
+              entry.date <= date
+          );
+          dataPoint[name] = entriesUpToDate.reduce(
+            (sum, entry) => sum + entry.points, 
+            0
+          );
         });
-        
+
         return dataPoint;
       });
     }
