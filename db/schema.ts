@@ -2,7 +2,7 @@ import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Employee schema with only essential fields
+// Core employee schema with only essential fields
 export const employees = pgTable("employees", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
@@ -12,7 +12,7 @@ export const employees = pgTable("employees", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
-// Points history schema
+// Simple points history tracking
 export const pointsHistory = pgTable("points_history", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   employeeId: integer("employee_id").references(() => employees.id).notNull(),
@@ -21,7 +21,7 @@ export const pointsHistory = pgTable("points_history", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
-// Export schemas and types
+// Zod schemas for validation
 export const insertEmployeeSchema = createInsertSchema(employees);
 export const selectEmployeeSchema = createSelectSchema(employees);
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;

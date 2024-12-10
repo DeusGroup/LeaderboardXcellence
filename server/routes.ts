@@ -5,7 +5,12 @@ import { employees, pointsHistory } from "@db/schema";
 import { sql } from "drizzle-orm";
 
 export function registerRoutes(app: Express) {
-  // Leaderboard route
+  // Core routes for the leaderboard system
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "healthy" });
+  });
+
+  // Get leaderboard
   app.get("/api/leaderboard", async (req, res) => {
     try {
       const leaderboard = await db.query.employees.findMany({
@@ -17,7 +22,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // Employee management routes
+  // Add employee
   app.post("/api/employees", async (req, res) => {
     const { name, title, department } = req.body;
     try {
@@ -30,60 +35,28 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/employees/:id", async (req, res) => {
-    try {
-      const employee = await db.query.employees.findFirst({
-        where: eq(employees.id, parseInt(req.params.id)),
-      });
-      if (!employee) return res.status(404).json({ error: "Employee not found" });
-      res.json(employee);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch employee" });
-    }
-  });
-
-  // Points management route
+  // Award points
   app.post("/api/points/award", async (req, res) => {
     const { employeeId, points, reason } = req.body;
     try {
       const result = await db.transaction(async (tx) => {
+        // Record points history
         const [history] = await tx.insert(pointsHistory)
-          .values({
-            employeeId,
-            points,
-            reason,
-          })
+          .values({ employeeId, points, reason })
           .returning();
 
+        // Update employee points
         const [updated] = await tx
           .update(employees)
-          .set({
-            points: sql`${employees.points} + ${points}`
-          })
+          .set({ points: sql`${employees.points} + ${points}` })
           .where(eq(employees.id, employeeId))
           .returning();
 
         return { history, updated };
       });
-
       res.json(result);
     } catch (error) {
-      res.status(500).json({ 
-        message: "Failed to award points",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  app.get("/api/points/history/:employeeId", async (req, res) => {
-    try {
-      const history = await db.query.pointsHistory.findMany({
-        where: eq(pointsHistory.employeeId, parseInt(req.params.employeeId)),
-        orderBy: [desc(pointsHistory.createdAt)],
-      });
-      res.json(history);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch points history" });
+      res.status(500).json({ error: "Failed to award points" });
     }
   });
 }
