@@ -6,6 +6,24 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Trophy, Star, Flame, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PerformanceChart } from "../components/PerformanceChart";
+
+interface Employee {
+  id: number;
+  name: string;
+  title: string;
+  department: string;
+  points: number;
+  monthlyPoints: number;
+  streak: number;
+  specialization: string;
+  pointsHistory?: Array<{
+    id: number;
+    points: number;
+    reason: string;
+    createdAt: string;
+  }>;
+}
 
 type SortKey = "points" | "monthlyPoints" | "streak";
 type FilterKey = "all" | "backend" | "frontend" | "devops" | "security";
@@ -14,15 +32,15 @@ export function Leaderboard() {
   const [sortBy, setSortBy] = useState<SortKey>("points");
   const [filterBy, setFilterBy] = useState<FilterKey>("all");
 
-  const { data: employees = [], isLoading } = useQuery({
+  const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["leaderboard"],
     queryFn: fetchLeaderboard,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const sortedAndFilteredEmployees = employees
-    .filter((employee: { specialization: string }) => filterBy === "all" || employee.specialization === filterBy)
-    .sort((a: { [key: string]: number }, b: { [key: string]: number }) => b[sortBy] - a[sortBy]);
+    .filter((employee) => filterBy === "all" || employee.specialization === filterBy)
+    .sort((a, b) => b[sortBy] - a[sortBy]);
 
   const statsCards = [
     {
@@ -122,7 +140,19 @@ export function Leaderboard() {
           ))}
         </div>
       ) : (
-        <LeaderboardTable employees={sortedAndFilteredEmployees} />
+        <>
+          <PerformanceChart
+            title="Team Performance Trends"
+            aggregated
+            data={employees.slice(0, 5).map(employee => ({
+              name: employee.name,
+              history: employee.pointsHistory || []
+            }))}
+          />
+          <div className="mt-8">
+            <LeaderboardTable employees={sortedAndFilteredEmployees} />
+          </div>
+        </>
       )}
     </div>
   );

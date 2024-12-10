@@ -13,10 +13,45 @@ interface PointsHistoryEntry {
 
 interface PerformanceChartProps {
   history?: PointsHistoryEntry[];
+  title?: string;
+  aggregated?: boolean;
+  data?: Array<{
+    name: string;
+    history: PointsHistoryEntry[];
+  }>;
 }
 
-export function PerformanceChart({ history = [] }: PerformanceChartProps) {
+export function PerformanceChart({ 
+  history = [], 
+  title = "Performance Trend",
+  aggregated = false,
+  data = []
+}: PerformanceChartProps) {
   const chartData = useMemo(() => {
+    if (aggregated && data.length > 0) {
+      // Create a map of dates to employee points
+      const dateMap = new Map<string, { [key: string]: number }>();
+      
+      data.forEach(({ name, history }) => {
+        history.forEach((entry) => {
+          const date = new Date(entry.createdAt).toISOString().split('T')[0];
+          if (!dateMap.has(date)) {
+            dateMap.set(date, {});
+          }
+          const dateData = dateMap.get(date)!;
+          dateData[name] = entry.points;
+        });
+      });
+
+      // Convert map to array and sort by date
+      return Array.from(dateMap.entries())
+        .map(([date, points]) => ({
+          date: new Date(date),
+          ...points
+        }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+    }
+
     return history
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       .map((entry) => ({
@@ -24,7 +59,7 @@ export function PerformanceChart({ history = [] }: PerformanceChartProps) {
         points: entry.points,
         reason: entry.reason,
       }));
-  }, [history]);
+  }, [history, data, aggregated]);
 
   const config = {
     points: {
@@ -39,7 +74,7 @@ export function PerformanceChart({ history = [] }: PerformanceChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Performance Trend</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -52,13 +87,26 @@ export function PerformanceChart({ history = [] }: PerformanceChartProps) {
                 />
                 <YAxis />
                 <CartesianGrid strokeDasharray="3 3" />
-                <Line
-                  type="monotone"
-                  dataKey="points"
-                  stroke="var(--color-points)"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
+                {aggregated ? (
+                  data.map(({ name }, index) => (
+                    <Line
+                      key={name}
+                      type="monotone"
+                      dataKey={name}
+                      stroke={`hsl(var(--chart-${(index % 5) + 1}))`}
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                  ))
+                ) : (
+                  <Line
+                    type="monotone"
+                    dataKey="points"
+                    stroke="var(--color-points)"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                  />
+                )}
                 <ChartTooltip
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
@@ -66,8 +114,18 @@ export function PerformanceChart({ history = [] }: PerformanceChartProps) {
                     return (
                       <ChartTooltipContent>
                         <div className="space-y-1">
-                          <p className="text-sm font-medium">{data.points} Points</p>
-                          <p className="text-xs text-muted-foreground">{data.reason}</p>
+                          {aggregated ? (
+                            payload.map((entry) => (
+                              <p key={entry.dataKey} className="text-sm font-medium">
+                                {entry.dataKey}: {entry.value} Points
+                              </p>
+                            ))
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium">{data.points} Points</p>
+                              <p className="text-xs text-muted-foreground">{data.reason}</p>
+                            </>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             {formatDistanceToNow(data.date, { addSuffix: true })}
                           </p>
