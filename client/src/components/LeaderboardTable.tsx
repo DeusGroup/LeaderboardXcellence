@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, ChevronDown, ChevronUp, Flame, Star, Code } from "lucide-react";
+import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchPointsHistory } from "../lib/api";
 import { PointsHistory } from "./PointsHistory";
@@ -12,8 +12,6 @@ interface Employee {
   name: string;
   title: string;
   department: string;
-  specialization: string;
-  level: string;
   points: number;
   monthlyPoints: number;
   streak: number;
@@ -34,26 +32,6 @@ export function LeaderboardTable({ employees }: LeaderboardTableProps) {
     },
     enabled: !!expandedEmployee,
   });
-
-  const getLevelBadgeColor = (level: string) => {
-    switch (level) {
-      case 'junior': return 'bg-blue-500';
-      case 'mid': return 'bg-green-500';
-      case 'senior': return 'bg-purple-500';
-      case 'lead': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getSpecializationIcon = (specialization: string) => {
-    switch (specialization) {
-      case 'backend': return '🔧';
-      case 'frontend': return '🎨';
-      case 'devops': return '⚙️';
-      case 'security': return '🔒';
-      default: return '💻';
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -87,40 +65,16 @@ export function LeaderboardTable({ employees }: LeaderboardTableProps) {
                     <AvatarFallback>{employee.name[0]}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{employee.name}</p>
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs text-white",
-                        getLevelBadgeColor(employee.level)
-                      )}>
-                        {employee.level}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-2">
-                      <span>{employee.title}</span>
-                      <span>•</span>
-                      <span>{employee.department}</span>
-                      <span>•</span>
-                      <span title={`Specialization: ${employee.specialization}`}>
-                        {getSpecializationIcon(employee.specialization)}
-                      </span>
-                    </div>
+                    <p className="font-medium">{employee.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {employee.title} • {employee.department}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
-                  <div className="text-right flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <Flame className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm font-medium">{employee.streak}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium">{employee.monthlyPoints}</span>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{employee.points}</p>
-                      <p className="text-sm text-muted-foreground">total points</p>
-                    </div>
+                  <div>
+                    <p className="text-2xl font-bold">{employee.points}</p>
+                    <p className="text-sm text-muted-foreground">total points</p>
                   </div>
                   {expandedEmployee === employee.id ? (
                     <ChevronUp className="h-5 w-5 text-muted-foreground" />
