@@ -3,7 +3,6 @@ import { db } from "../db";
 import { eq, desc } from "drizzle-orm";
 import { employees, achievements, employeeAchievements, pointsHistory } from "@db/schema";
 import { sql } from "drizzle-orm";
-import { sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { requireAuth } from "./middleware/auth";
 import multer from "multer";
@@ -24,24 +23,47 @@ const upload = multer({ storage });
 
 export function registerRoutes(app: Express) {
   app.post("/api/auth/login", (req, res) => {
-    const { password } = req.body;
-    
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Welcome1";
-    if (password === ADMIN_PASSWORD) {
-      const token = jwt.sign({}, process.env.JWT_SECRET || "development-secret-key-change-in-production", {
-        expiresIn: "24h",
-      });
+    try {
+      const { password } = req.body;
       
-      res.cookie("authToken", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      });
+      if (!password || typeof password !== 'string') {
+        return res.status(400).json({ 
+          status: 'error',
+          message: "Password is required and must be a string" 
+        });
+      }
+
+      const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Welcome1";
+      if (password === ADMIN_PASSWORD) {
+        const token = jwt.sign(
+          {},
+          process.env.JWT_SECRET || "development-secret-key-change-in-production",
+          { expiresIn: "24h" }
+        );
+        
+        res.cookie("authToken", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        });
+        
+        return res.json({ 
+          status: 'success',
+          message: "Logged in successfully" 
+        });
+      }
       
-      res.json({ message: "Logged in successfully" });
-    } else {
-      res.status(401).json({ message: "Invalid password" });
+      return res.status(401).json({ 
+        status: 'error',
+        message: "Invalid password" 
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(500).json({ 
+        status: 'error',
+        message: "Internal server error during login" 
+      });
     }
   });
 
@@ -64,15 +86,61 @@ export function registerRoutes(app: Express) {
   });
 
   app.post("/api/employees", requireAuth, async (req, res) => {
-    const { name, title, department } = req.body;
-    
     try {
+      const { name, title, department } = req.body;
+      
+      // Input validation
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: "Name is required and must be a non-empty string" 
+        });
+      }
+      
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: "Title is required and must be a non-empty string" 
+        });
+      }
+      
+      if (!department || typeof department !== 'string' || department.trim().length === 0) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: "Department is required and must be a non-empty string" 
+        });
+      }
+
+      // Create employee with sanitized inputs
       const [employee] = await db.insert(employees)
-        .values({ name, title, department })
+        .values({ 
+          name: name.trim(),
+          title: title.trim(), 
+          department: department.trim() 
+        })
         .returning();
-      res.json(employee);
+
+      return res.status(201).json({
+        status: 'success',
+        data: employee
+      });
     } catch (error) {
-      res.status(500).json({ error: "Failed to create employee" });
+      console.error('Error creating employee:', error);
+      
+      if (error instanceof Error) {
+        // Handle specific database errors
+        if (error.message.includes('unique constraint')) {
+          return res.status(409).json({ 
+            status: 'error',
+            message: "An employee with this information already exists" 
+          });
+        }
+      }
+      
+      return res.status(500).json({ 
+        status: 'error',
+        message: "Failed to create employee" 
+      });
     }
   });
 
