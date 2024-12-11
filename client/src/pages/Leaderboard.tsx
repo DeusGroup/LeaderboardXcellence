@@ -5,9 +5,12 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Trophy } from "lucide-react";
 
 import type { Employee } from "@db/schema";
+type LeaderboardEmployee = Omit<Employee, 'imageUrl'> & {
+  imageUrl: string | null;
+};
 
 export function Leaderboard() {
-  const { data: employees = [], isLoading } = useQuery<Employee[]>({
+  const { data: employees = [], isLoading } = useQuery<LeaderboardEmployee[]>({
     queryKey: ["leaderboard"] as const,
     queryFn: fetchLeaderboard,
     refetchInterval: 30000, // Refresh every 30 seconds
