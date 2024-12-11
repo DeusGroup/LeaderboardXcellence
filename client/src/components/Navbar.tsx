@@ -10,7 +10,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center space-x-2">
-            <Trophy className="h-6 w-6" />
+            <Trophy className="h-6 w-6 text-yellow-500" />
             <span className="font-bold">IT Incentive</span>
           </Link>
         </div>

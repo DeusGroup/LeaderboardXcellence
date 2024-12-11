@@ -4,18 +4,10 @@ import { LeaderboardTable } from "../components/LeaderboardTable";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
 
-export interface Employee {
-  id: number;
-  name: string;
-  title: string;
-  department: string;
-  points: number;
-  monthlyPoints: number;
-  streak: number;
-}
+import type { Employee } from "@db/schema";
 
 export function Leaderboard() {
-  const { data: employees = [], isLoading } = useQuery({
+  const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["leaderboard"] as const,
     queryFn: fetchLeaderboard,
     refetchInterval: 30000, // Refresh every 30 seconds

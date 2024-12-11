@@ -1,12 +1,13 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { setupVite } from "./vite.js";
-import { registerRoutes } from "./routes.js";
-import { initializeWebSocket } from "./websocket.js";
+import { setupVite } from "./vite";
+import { registerRoutes } from "./routes";
+import { initializeWebSocket } from "./websocket";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";

@@ -46,7 +46,15 @@ export function App() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const handleWebSocketMessage = (data: any) => {
+    interface WebSocketMessage {
+      type: 'POINTS_AWARDED' | 'ACHIEVEMENT_UNLOCKED' | 'RANK_CHANGED';
+      points?: number;
+      reason?: string;
+      achievementName?: string;
+      newRank?: number;
+    }
+    
+    const handleWebSocketMessage = (data: WebSocketMessage) => {
       switch (data.type) {
         case "POINTS_AWARDED":
           toast({
