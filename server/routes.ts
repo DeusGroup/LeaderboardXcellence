@@ -3,6 +3,7 @@ import { db } from "../db";
 import { eq, desc } from "drizzle-orm";
 import { employees, achievements, employeeAchievements, pointsHistory } from "@db/schema";
 import { sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { requireAuth } from "./middleware/auth";
 import multer from "multer";
@@ -49,10 +50,17 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/leaderboard", async (req, res) => {
-    const leaderboard = await db.query.employees.findMany({
-      orderBy: [desc(employees.points)],
-    });
-    res.json(leaderboard);
+    try {
+      console.log('[Leaderboard] Fetching leaderboard data');
+      const leaderboard = await db.select()
+        .from(employees)
+        .orderBy(desc(employees.points));
+      console.log(`[Leaderboard] Found ${leaderboard.length} employees`);
+      res.json(leaderboard);
+    } catch (error) {
+      console.error('[Leaderboard] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    }
   });
 
   app.post("/api/employees", requireAuth, async (req, res) => {

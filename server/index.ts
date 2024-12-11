@@ -128,6 +128,7 @@ if (!fs.existsSync(uploadsDir)) {
 
     // Initialize database connection with proper error handling
     try {
+      log('Attempting to connect to database...');
       const client = new pg.Client({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
@@ -139,22 +140,30 @@ if (!fs.existsSync(uploadsDir)) {
         // Attempt to reconnect
         setTimeout(() => {
           log('Attempting to reconnect to database...');
-          client.connect();
+          client.connect().catch(err => {
+            log(`Reconnection failed: ${err.message}`);
+          });
         }, 5000);
       });
 
-      await client.connect();
-      log('Successfully connected to database');
-      
-      // Initialize Drizzle with connected client
-      const db = drizzle(client);
-      
-      // Add to global app context
-      app.locals.db = db;
+      try {
+        await client.connect();
+        log('Successfully connected to database client');
+        
+        // Initialize Drizzle with connected client
+        const db = drizzle(client);
+        
+        // Add to global app context and export for routes
+        app.locals.db = db;
+        (global as any).db = db;
 
-      // Test database connection
-      const result = await client.query('SELECT NOW()');
-      log(`Database connected successfully at ${result.rows[0].now}`);
+        // Test database connection
+        const result = await client.query('SELECT NOW()');
+        log(`Database connected successfully at ${result.rows[0].now}`);
+      } catch (dbConnectError) {
+        log(`Failed to connect to database client: ${dbConnectError}`);
+        throw dbConnectError;
+      }
 
     } catch (error: unknown) {
       const dbError = error as { message?: string; code?: string };
