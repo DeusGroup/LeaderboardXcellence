@@ -10,35 +10,56 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  allowExitOnIdle: true
-});
+let poolInstance: pg.Pool | null = null;
 
-// Improved error handling for the connection pool
-pool.on('connect', () => {
-  console.log('New client connected to the database');
-});
+// Function to get or create the pool
+function getPool(): pg.Pool {
+  if (!poolInstance) {
+    poolInstance = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  if (err.message.includes('Connection terminated')) {
-    console.log('Attempting to reconnect to database...');
-  } else {
-    process.exit(-1);
+    // Set up pool event handlers
+    poolInstance.on('error', (err: Error) => {
+      console.error('Unexpected database pool error:', err);
+      // Don't exit on connection errors, let the application handle reconnection
+      if (!err.message.includes('Connection terminated')) {
+        console.error('Fatal database error, shutting down.');
+        process.exit(-1);
+      }
+    });
+
+    poolInstance.on('connect', () => {
+      console.log('New client connected to the database');
+    });
+
+    // Test the connection immediately
+    poolInstance.query('SELECT NOW()')
+      .then(() => console.log('Database connection verified'))
+      .catch((err: Error) => {
+        console.error('Initial database connection failed:', err);
+        process.exit(-1);
+      });
   }
-});
+  return poolInstance;
+}
 
-// Test the connection immediately
-pool.query('SELECT 1')
-  .then(() => console.log('Database connection verified'))
-  .catch(err => {
-    console.error('Initial database connection failed:', err);
-    process.exit(-1);
-  });
+// Initialize the database connection
+const pool = getPool();
+console.log('Database pool initialized');
 
 export const db = drizzle(pool, { schema });
+
+// Cleanup function for graceful shutdown
+export const cleanup = async (): Promise<void> => {
+  if (poolInstance) {
+    console.log('Closing database pool...');
+    await poolInstance.end();
+    poolInstance = null;
+    console.log('Database pool closed');
+  }
+};

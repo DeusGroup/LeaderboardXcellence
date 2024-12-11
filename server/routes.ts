@@ -23,10 +23,11 @@ const storage = multer.diskStorage({
   destination: function (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) {
     const uploadDir = path.join(process.cwd(), 'uploads');
     try {
-      // Ensure uploads directory exists
+      // Ensure uploads directory exists with proper permissions
       if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+        fs.mkdirSync(uploadDir, { recursive: true, mode: 0o755 });
       }
+      console.log(`Upload directory created/verified at: ${uploadDir}`);
       cb(null, uploadDir);
     } catch (error) {
       console.error('Error ensuring upload directory exists:', error);
@@ -35,9 +36,11 @@ const storage = multer.diskStorage({
   },
   filename: function (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) {
     try {
+      // Generate a unique filename with timestamp and random number
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       const extension = path.extname(file.originalname).toLowerCase();
       const finalFilename = `${file.fieldname}-${uniqueSuffix}${extension}`;
+      console.log(`Generated filename for upload: ${finalFilename}`);
       cb(null, finalFilename);
     } catch (error) {
       console.error('Error generating filename:', error);
@@ -226,6 +229,13 @@ export function registerRoutes(app: Express) {
       // Handle file upload if present
       let imageUrl = currentEmployee.imageUrl; // Keep existing image URL by default
       if (req.file) {
+        console.log('File upload detected:', {
+          originalName: req.file.originalname,
+          filename: req.file.filename,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+
         try {
           // Construct public URL for the uploaded image
           const filename = req.file.filename;
@@ -234,17 +244,24 @@ export function registerRoutes(app: Express) {
           
           // Verify the uploaded file exists and is accessible
           const newImagePath = path.join(process.cwd(), 'uploads', filename);
+          console.log(`Checking file at path: ${newImagePath}`);
+          
           if (!fs.existsSync(newImagePath)) {
+            console.error(`File not found at path: ${newImagePath}`);
             throw new Error('Uploaded file not found in uploads directory');
           }
+          console.log(`File verified at path: ${newImagePath}`);
           
           // Delete old image file if it exists
           if (currentEmployee.imageUrl) {
             try {
               const oldImagePath = path.join(process.cwd(), 'uploads', decodeURIComponent(currentEmployee.imageUrl.split('/').pop() || ''));
+              console.log(`Attempting to delete old image at: ${oldImagePath}`);
               if (fs.existsSync(oldImagePath)) {
                 fs.unlinkSync(oldImagePath);
-                console.log(`Deleted old image: ${oldImagePath}`);
+                console.log(`Successfully deleted old image: ${oldImagePath}`);
+              } else {
+                console.log(`Old image not found at: ${oldImagePath}`);
               }
             } catch (deleteError) {
               console.error('Error deleting old image:', deleteError);
@@ -253,11 +270,17 @@ export function registerRoutes(app: Express) {
           }
           
           console.log(`New image URL to be saved: ${imageUrl}`);
+          // Verify the URL is properly formatted
+          if (!imageUrl.startsWith('/uploads/')) {
+            console.error('Invalid image URL format:', imageUrl);
+            throw new Error('Invalid image URL format');
+          }
         } catch (uploadError) {
           console.error('Error processing uploaded file:', uploadError);
           return res.status(500).json({
             status: 'error',
-            message: 'Failed to process uploaded image'
+            message: 'Failed to process uploaded image',
+            details: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
           });
         }
       }

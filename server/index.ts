@@ -11,6 +11,7 @@ import { initializeWebSocket } from "./websocket";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { cleanup } from "../db";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -83,12 +84,20 @@ async function startServer(app: express.Express, port: number): Promise<void> {
       
       // Initialize WebSocket server before starting HTTP server
       log('Initializing WebSocket server...');
-      initializeWebSocket(server);
-      log('WebSocket server initialized successfully');
+      try {
+        initializeWebSocket(server);
+        log('WebSocket server initialized successfully');
+      } catch (wsError) {
+        log('WebSocket initialization error:', wsError);
+        // Continue without WebSocket if it fails
+        log('Continuing without WebSocket functionality');
+      }
 
       log(`Attempting to start server on port ${port}...`);
       const httpServer = server.listen(port, "0.0.0.0", () => {
-        log(`Server running at http://0.0.0.0:${port}`);
+        const addr = httpServer.address();
+        const actualPort = typeof addr === 'object' && addr ? addr.port : port;
+        log(`Server running at http://0.0.0.0:${actualPort}`);
         resolve();
       });
 
@@ -103,13 +112,29 @@ async function startServer(app: express.Express, port: number): Promise<void> {
       // Handle server shutdown
       process.on('SIGTERM', () => {
         log('Received SIGTERM signal. Shutting down gracefully...');
-        httpServer.close(() => {
+        httpServer.close(async () => {
+          try {
+            // Cleanup database connections
+            await cleanup();
+            log('Server resources cleaned up successfully');
+          } catch (cleanupError) {
+            log('Error during cleanup:', cleanupError);
+          }
           log('Server closed successfully');
           process.exit(0);
         });
       });
+
+      // Add error handler for uncaught server errors
+      server.on('error', (error: Error) => {
+        log('Unexpected server error:', error);
+      });
     } catch (error) {
       log('Failed to initialize server:', error);
+      if (error instanceof Error) {
+        log('Error details:', error.message);
+        log('Error stack:', error.stack);
+      }
       reject(error);
     }
   });
@@ -124,12 +149,21 @@ async function main() {
       throw new Error('DATABASE_URL environment variable is not set');
     }
     
-    // Ensure uploads directory exists
+    // Ensure uploads directory exists with proper permissions
     const uploadsDir = path.join(process.cwd(), "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      log('Creating uploads directory...');
-      fs.mkdirSync(uploadsDir, { recursive: true });
-      log('Uploads directory created successfully');
+    try {
+      if (!fs.existsSync(uploadsDir)) {
+        log('Creating uploads directory...');
+        fs.mkdirSync(uploadsDir, { recursive: true, mode: 0o755 });
+        log('Uploads directory created successfully');
+      } else {
+        // Ensure proper permissions on existing directory
+        fs.chmodSync(uploadsDir, 0o755);
+      }
+      log(`Uploads directory verified at: ${uploadsDir}`);
+    } catch (error) {
+      log('Error creating/verifying uploads directory:', error);
+      throw new Error('Failed to setup uploads directory');
     }
 
     log('Creating Express application...');
@@ -190,9 +224,11 @@ async function main() {
     log('Setting up frontend serving...');
     try {
       if (process.env.NODE_ENV === "development") {
+        log('Creating HTTP server for Vite...');
         const server = createServer(app);
+        log('Setting up Vite middleware...');
         await setupVite(app, server);
-        log('Vite development server initialized');
+        log('Vite development server initialized successfully');
       } else {
         app.use(express.static(path.resolve("dist/public")));
         app.get("*", (_req, res) => {
@@ -202,7 +238,12 @@ async function main() {
       }
     } catch (error) {
       log('Error setting up frontend serving:', error);
+      if (error instanceof Error) {
+        log('Error details:', error.message);
+        log('Error stack:', error.stack);
+      }
       // Continue server startup even if frontend setup fails
+      log('Continuing server startup despite frontend setup error');
     }
 
     // Global error handling
