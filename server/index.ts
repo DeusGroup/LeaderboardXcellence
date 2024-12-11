@@ -202,13 +202,26 @@ async function main() {
       throw new Error('Failed to setup uploads directory');
     }
     
-    // Serve uploaded files with proper headers and permissions
-    app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
-      setHeaders: (res) => {
+    // Configure static file serving for uploaded files
+    const uploadsPath = path.join(process.cwd(), 'uploads');
+    app.use('/uploads', express.static(uploadsPath, {
+      setHeaders: (res, filePath) => {
+        // Set appropriate content type based on file extension
+        const ext = path.extname(filePath).toLowerCase();
+        const contentTypes: { [key: string]: string } = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp'
+        };
+        res.set('Content-Type', contentTypes[ext] || 'application/octet-stream');
+        // Enable caching
         res.set('Cache-Control', 'public, max-age=31536000');
+        // Allow cross-origin requests
         res.set('Access-Control-Allow-Origin', '*');
-        res.set('Content-Type', 'image/*');
       },
+      fallthrough: false, // Return 404 if file not found
     }));
 
     // Request logging middleware

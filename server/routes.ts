@@ -184,17 +184,6 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     try {
-      console.log('Received profile update request:', { 
-        employeeId: req.params.id, 
-        hasFile: !!req.file,
-        body: req.body,
-        file: req.file ? {
-          filename: req.file.filename,
-          path: req.file.path,
-          mimetype: req.file.mimetype
-        } : null
-      });
-
       const { name, title, department } = req.body;
       const employeeId = parseInt(req.params.id);
       
@@ -221,40 +210,45 @@ export function registerRoutes(app: Express) {
       let imageUrl = currentEmployee.imageUrl;
       if (req.file) {
         try {
-          // Ensure uploads directory exists
+          // Ensure uploads directory exists with proper permissions
           const uploadsDir = path.join(process.cwd(), 'uploads');
           await fs.promises.mkdir(uploadsDir, { recursive: true, mode: 0o755 });
 
-          const filename = req.file.filename;
-          const filePath = path.join(uploadsDir, filename);
-          
-          // Verify and process the uploaded file
-          const stats = await fs.promises.stat(filePath);
-          if (stats.size === 0) {
-            throw new Error('Uploaded file is empty');
-          }
+          // Generate a unique filename with timestamp and original extension
+          const fileExt = path.extname(req.file.originalname).toLowerCase();
+          const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+          const filePath = path.join(uploadsDir, uniqueFilename);
+
+          // Move the uploaded file to its final location
+          await fs.promises.rename(req.file.path, filePath);
           
           // Set proper file permissions
           await fs.promises.chmod(filePath, 0o644);
           
-          // Update image URL
-          imageUrl = `/uploads/${filename}`;
-          
           // Clean up old image if it exists
           if (currentEmployee.imageUrl) {
-            const oldPath = path.join(uploadsDir, path.basename(currentEmployee.imageUrl));
-            if (await fs.promises.access(oldPath).then(() => true).catch(() => false)) {
-              await fs.promises.unlink(oldPath);
+            const oldImagePath = path.join(uploadsDir, path.basename(currentEmployee.imageUrl));
+            try {
+              await fs.promises.access(oldImagePath);
+              await fs.promises.unlink(oldImagePath);
+              console.log('Old image deleted:', oldImagePath);
+            } catch (error) {
+              // Ignore errors if old file doesn't exist
+              console.log('No old image to delete or error:', error);
             }
           }
           
-          console.log('File processed successfully:', {
-            path: filePath,
-            url: imageUrl,
-            size: stats.size
+          // Update image URL - use absolute path from root
+          imageUrl = `/uploads/${uniqueFilename}`;
+          
+          console.log('New image processed:', {
+            originalName: req.file.originalname,
+            savedAs: uniqueFilename,
+            size: req.file.size,
+            url: imageUrl
           });
         } catch (error) {
-          console.error('Error processing file upload:', error);
+          console.error('Error processing image upload:', error);
           return res.status(500).json({
             status: 'error',
             message: 'Failed to process image upload'
@@ -262,12 +256,12 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      // Prepare update data
+      // Prepare update data with all fields
       const updateData = {
-        ...(name && { name: name.trim() }), 
-        ...(title && { title: title.trim() }), 
-        ...(department && { department: department.trim() }),
-        ...(imageUrl && { imageUrl })
+        name: name?.trim() || currentEmployee.name,
+        title: title?.trim() || currentEmployee.title,
+        department: department?.trim() || currentEmployee.department,
+        imageUrl
       };
 
       // Update employee data
@@ -281,12 +275,18 @@ export function registerRoutes(app: Express) {
         throw new Error('Update operation failed');
       }
 
+      console.log('Employee updated successfully:', {
+        id: updated.id,
+        name: updated.name,
+        imageUrl: updated.imageUrl
+      });
+
       res.json({
         status: 'success',
         data: updated
       });
     } catch (error) {
-      console.error('Error updating employee:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error updating employee:', error);
       res.status(500).json({ 
         status: 'error',
         message: "Failed to update employee",
