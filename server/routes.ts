@@ -184,10 +184,22 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     try {
-      // Ensure uploads directory exists
+      // Ensure uploads directory exists with proper permissions
       const uploadsDir = path.join(process.cwd(), 'uploads');
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
+      try {
+        await fs.promises.access(uploadsDir, fs.constants.R_OK | fs.constants.W_OK)
+          .catch(async () => {
+            console.log('Creating or updating uploads directory permissions');
+            await fs.promises.mkdir(uploadsDir, { recursive: true, mode: 0o755 });
+            await fs.promises.chmod(uploadsDir, 0o755);
+          });
+        console.log(`Uploads directory verified at: ${uploadsDir}`);
+      } catch (error) {
+        console.error('Error ensuring uploads directory:', error);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Server configuration error with uploads directory'
+        });
       }
 
       console.log('Received profile update request:', { 
@@ -239,16 +251,18 @@ export function registerRoutes(app: Express) {
         try {
           // Construct public URL for the uploaded image
           const filename = req.file.filename;
-          imageUrl = `/uploads/${encodeURIComponent(filename)}`;
-          console.log(`Processing file upload: ${filename}`);
+          const newImagePath = path.join(process.cwd(), 'uploads', filename);
+          console.log(`Processing file upload: ${filename} at path: ${newImagePath}`);
           
           // Verify the uploaded file exists and is accessible
-          const newImagePath = path.join(process.cwd(), 'uploads', filename);
-          console.log(`Checking file at path: ${newImagePath}`);
-          
-          if (!fs.existsSync(newImagePath)) {
-            console.error(`File not found at path: ${newImagePath}`);
-            throw new Error('Uploaded file not found in uploads directory');
+          try {
+            await fs.promises.access(newImagePath, fs.constants.R_OK | fs.constants.W_OK);
+            console.log(`File verified at path: ${newImagePath}`);
+            // Use absolute path for image URL to ensure proper serving
+            imageUrl = `/uploads/${encodeURIComponent(filename)}`;
+          } catch (error) {
+            console.error(`File access error at path ${newImagePath}:`, error);
+            throw new Error('Uploaded file not accessible in uploads directory');
           }
           console.log(`File verified at path: ${newImagePath}`);
           
@@ -296,6 +310,8 @@ export function registerRoutes(app: Express) {
       console.log('Update data being applied:', updateData);
       
       try {
+        console.log('Attempting to update employee with data:', updateData);
+        
         // Update employee data
         const [updated] = await db
           .update(employees)
@@ -307,10 +323,23 @@ export function registerRoutes(app: Express) {
           throw new Error('Update operation did not return updated employee data');
         }
 
-        console.log('Successfully updated employee:', updated);
+        // Verify the update was successful
+        const verifiedEmployee = await db.query.employees.findFirst({
+          where: eq(employees.id, employeeId),
+        });
+
+        if (!verifiedEmployee || (imageUrl && verifiedEmployee.imageUrl !== imageUrl)) {
+          console.error('Database verification failed:', {
+            expected: updateData,
+            actual: verifiedEmployee
+          });
+          throw new Error('Database update verification failed');
+        }
+
+        console.log('Successfully updated and verified employee:', verifiedEmployee);
         res.json({
           status: 'success',
-          data: updated
+          data: verifiedEmployee
         });
       } catch (dbError) {
         console.error('Database error while updating employee:', dbError);
