@@ -18,8 +18,12 @@ interface Employee {
   imageUrl?: string;
 }
 
+type LeaderboardEmployee = Omit<Employee, 'imageUrl'> & {
+  imageUrl: string | null;
+};
+
 interface LeaderboardTableProps {
-  employees: Employee[];
+  employees: LeaderboardEmployee[];
 }
 
 export function LeaderboardTable({ employees }: LeaderboardTableProps) {
