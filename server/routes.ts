@@ -1,12 +1,21 @@
-import { Express } from "express";
+import { Express, Request, Response } from "express";
 import { db } from "../db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { employees, achievements, employeeAchievements, pointsHistory } from "@db/schema";
-import { sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { requireAuth } from "./middleware/auth";
 import multer from "multer";
 import path from "path";
+import {
+  ApiResponse,
+  AuthRequest,
+  LoginRequest,
+  CreateEmployeeRequest,
+  AwardPointsRequest,
+  UpdatePointsRequest,
+  EmployeeResponse,
+  PointsHistoryResponse,
+} from "./types";
 
 // Configure multer for handling file uploads
 const storage = multer.diskStorage({
@@ -22,7 +31,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 export function registerRoutes(app: Express) {
-  app.post("/api/auth/login", (req, res) => {
+  app.post("/api/auth/login", async (req: Request<{}, {}, LoginRequest>, res: Response<ApiResponse>) => {
     try {
       const { password } = req.body;
       
