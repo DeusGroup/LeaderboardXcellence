@@ -184,24 +184,6 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     try {
-      // Ensure uploads directory exists with proper permissions
-      const uploadsDir = path.join(process.cwd(), 'uploads');
-      try {
-        await fs.promises.access(uploadsDir, fs.constants.R_OK | fs.constants.W_OK)
-          .catch(async () => {
-            console.log('Creating or updating uploads directory permissions');
-            await fs.promises.mkdir(uploadsDir, { recursive: true, mode: 0o755 });
-            await fs.promises.chmod(uploadsDir, 0o755);
-          });
-        console.log(`Uploads directory verified at: ${uploadsDir}`);
-      } catch (error) {
-        console.error('Error ensuring uploads directory:', error);
-        return res.status(500).json({
-          status: 'error',
-          message: 'Server configuration error with uploads directory'
-        });
-      }
-
       console.log('Received profile update request:', { 
         employeeId: req.params.id, 
         hasFile: !!req.file,
@@ -216,15 +198,14 @@ export function registerRoutes(app: Express) {
       const { name, title, department } = req.body;
       const employeeId = parseInt(req.params.id);
       
-      // Input validation
       if (!employeeId || isNaN(employeeId)) {
         return res.status(400).json({ 
           status: 'error',
           message: "Invalid employee ID" 
         });
       }
-      
-      // First, get the current employee data
+
+      // Get current employee data
       const currentEmployee = await db.query.employees.findFirst({
         where: eq(employees.id, employeeId),
       });
@@ -236,65 +217,47 @@ export function registerRoutes(app: Express) {
         });
       }
 
-      console.log('Current employee data:', currentEmployee);
-      
       // Handle file upload if present
-      let imageUrl = currentEmployee.imageUrl; // Keep existing image URL by default
+      let imageUrl = currentEmployee.imageUrl;
       if (req.file) {
-        console.log('File upload detected:', {
-          originalName: req.file.originalname,
-          filename: req.file.filename,
-          mimetype: req.file.mimetype,
-          size: req.file.size
-        });
-
         try {
-          // Construct public URL for the uploaded image
+          // Ensure uploads directory exists
+          const uploadsDir = path.join(process.cwd(), 'uploads');
+          await fs.promises.mkdir(uploadsDir, { recursive: true, mode: 0o755 });
+
           const filename = req.file.filename;
-          const newImagePath = path.join(process.cwd(), 'uploads', filename);
-          console.log(`Processing file upload: ${filename} at path: ${newImagePath}`);
+          const filePath = path.join(uploadsDir, filename);
           
-          // Verify the uploaded file exists and is accessible
-          try {
-            await fs.promises.access(newImagePath, fs.constants.R_OK | fs.constants.W_OK);
-            console.log(`File verified at path: ${newImagePath}`);
-            // Use absolute path for image URL to ensure proper serving
-            imageUrl = `/uploads/${encodeURIComponent(filename)}`;
-          } catch (error) {
-            console.error(`File access error at path ${newImagePath}:`, error);
-            throw new Error('Uploaded file not accessible in uploads directory');
+          // Verify and process the uploaded file
+          const stats = await fs.promises.stat(filePath);
+          if (stats.size === 0) {
+            throw new Error('Uploaded file is empty');
           }
-          console.log(`File verified at path: ${newImagePath}`);
           
-          // Delete old image file if it exists
+          // Set proper file permissions
+          await fs.promises.chmod(filePath, 0o644);
+          
+          // Update image URL
+          imageUrl = `/uploads/${filename}`;
+          
+          // Clean up old image if it exists
           if (currentEmployee.imageUrl) {
-            try {
-              const oldImagePath = path.join(process.cwd(), 'uploads', decodeURIComponent(currentEmployee.imageUrl.split('/').pop() || ''));
-              console.log(`Attempting to delete old image at: ${oldImagePath}`);
-              if (fs.existsSync(oldImagePath)) {
-                fs.unlinkSync(oldImagePath);
-                console.log(`Successfully deleted old image: ${oldImagePath}`);
-              } else {
-                console.log(`Old image not found at: ${oldImagePath}`);
-              }
-            } catch (deleteError) {
-              console.error('Error deleting old image:', deleteError);
-              // Continue with update even if old image deletion fails
+            const oldPath = path.join(uploadsDir, path.basename(currentEmployee.imageUrl));
+            if (await fs.promises.access(oldPath).then(() => true).catch(() => false)) {
+              await fs.promises.unlink(oldPath);
             }
           }
           
-          console.log(`New image URL to be saved: ${imageUrl}`);
-          // Verify the URL is properly formatted
-          if (!imageUrl.startsWith('/uploads/')) {
-            console.error('Invalid image URL format:', imageUrl);
-            throw new Error('Invalid image URL format');
-          }
-        } catch (uploadError) {
-          console.error('Error processing uploaded file:', uploadError);
+          console.log('File processed successfully:', {
+            path: filePath,
+            url: imageUrl,
+            size: stats.size
+          });
+        } catch (error) {
+          console.error('Error processing file upload:', error);
           return res.status(500).json({
             status: 'error',
-            message: 'Failed to process uploaded image',
-            details: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
+            message: 'Failed to process image upload'
           });
         }
       }
@@ -307,50 +270,27 @@ export function registerRoutes(app: Express) {
         ...(imageUrl && { imageUrl })
       };
 
-      console.log('Update data being applied:', updateData);
+      // Update employee data
+      const [updated] = await db
+        .update(employees)
+        .set(updateData)
+        .where(eq(employees.id, employeeId))
+        .returning();
       
-      try {
-        console.log('Attempting to update employee with data:', updateData);
-        
-        // Update employee data
-        const [updated] = await db
-          .update(employees)
-          .set(updateData)
-          .where(eq(employees.id, employeeId))
-          .returning();
-        
-        if (!updated) {
-          throw new Error('Update operation did not return updated employee data');
-        }
-
-        // Verify the update was successful
-        const verifiedEmployee = await db.query.employees.findFirst({
-          where: eq(employees.id, employeeId),
-        });
-
-        if (!verifiedEmployee || (imageUrl && verifiedEmployee.imageUrl !== imageUrl)) {
-          console.error('Database verification failed:', {
-            expected: updateData,
-            actual: verifiedEmployee
-          });
-          throw new Error('Database update verification failed');
-        }
-
-        console.log('Successfully updated and verified employee:', verifiedEmployee);
-        res.json({
-          status: 'success',
-          data: verifiedEmployee
-        });
-      } catch (dbError) {
-        console.error('Database error while updating employee:', dbError);
-        throw dbError; // Let the outer catch handle the error response
+      if (!updated) {
+        throw new Error('Update operation failed');
       }
+
+      res.json({
+        status: 'success',
+        data: updated
+      });
     } catch (error) {
-      console.error('Error updating employee:', error);
+      console.error('Error updating employee:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ 
         status: 'error',
         message: "Failed to update employee",
-        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
       });
     }
   });
@@ -482,50 +422,58 @@ export function registerRoutes(app: Express) {
   app.delete("/api/points/:historyId", requireAuth, async (req, res) => {
     const historyId = parseInt(req.params.historyId);
     
-    // Start a transaction to ensure both operations succeed or fail together
-    const result = await db.transaction(async (tx) => {
-      // Get the points history record
-      const [history] = await tx
-        .select()
-        .from(pointsHistory)
-        .where(eq(pointsHistory.id, historyId));
+    try {
+      // Start a transaction to ensure both operations succeed or fail together
+      const result = await db.transaction(async (tx) => {
+        // Get the points history record
+        const [history] = await tx
+          .select()
+          .from(pointsHistory)
+          .where(eq(pointsHistory.id, historyId));
 
-      if (!history) {
-        throw new Error("Points history record not found");
-      }
+        if (!history) {
+          throw new Error("Points history record not found");
+        }
 
-      // Get current employee points
-      const [employee] = await tx
-        .select()
-        .from(employees)
-        .where(eq(employees.id, history.employeeId));
+        // Get current employee points
+        const [employee] = await tx
+          .select()
+          .from(employees)
+          .where(eq(employees.id, history.employeeId));
 
-      if (!employee) {
-        throw new Error("Employee not found");
-      }
+        if (!employee) {
+          throw new Error("Employee not found");
+        }
 
-      // Check if deletion would result in negative points
-      if (employee.points < history.points) {
-        throw new Error("Cannot delete points: would result in negative balance");
-      }
+        // Check if deletion would result in negative points
+        if (employee.points < history.points) {
+          throw new Error("Cannot delete points: would result in negative balance");
+        }
 
-      // Update employee's total points by subtracting the points
-      await tx
-        .update(employees)
-        .set({
-          points: sql`${employees.points} - ${history.points}`
-        })
-        .where(eq(employees.id, history.employeeId));
+        // Update employee's total points by subtracting the points
+        await tx
+          .update(employees)
+          .set({
+            points: sql`${employees.points} - ${history.points}`
+          })
+          .where(eq(employees.id, history.employeeId));
 
-      // Delete the points history record
-      await tx
-        .delete(pointsHistory)
-        .where(eq(pointsHistory.id, historyId));
+        // Delete the points history record
+        await tx
+          .delete(pointsHistory)
+          .where(eq(pointsHistory.id, historyId));
 
-      return history;
-    });
+        return history;
+      });
 
-    res.json({ message: "Points history deleted successfully", deletedRecord: result });
+      res.json({ message: "Points history deleted successfully", deletedRecord: result });
+    } catch (error) {
+      console.error('Error deleting points history:', error);
+      res.status(400).json({ 
+        message: "Failed to delete points history",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   });
 
   app.get("/api/points/history/:employeeId", async (req, res) => {
@@ -537,25 +485,30 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/achievements/:employeeId", async (req, res) => {
-    // Get all achievements
-    const allAchievements = await db.query.achievements.findMany();
-    
-    // Get employee's earned achievements
-    const earnedAchievements = await db.query.employeeAchievements.findMany({
-      where: eq(employeeAchievements.employeeId, parseInt(req.params.employeeId)),
-    });
+    try {
+      // Get all achievements
+      const allAchievements = await db.query.achievements.findMany();
+      
+      // Get employee's earned achievements
+      const earnedAchievements = await db.query.employeeAchievements.findMany({
+        where: eq(employeeAchievements.employeeId, parseInt(req.params.employeeId)),
+      });
 
-    // Combine the data
-    const achievementsWithStatus = allAchievements.map(achievement => {
-      const earned = earnedAchievements.find(
-        earned => earned.achievementId === achievement.id
-      );
-      return {
+      // Combine the data
+      const achievementsWithStatus = allAchievements.map(achievement => ({
         ...achievement,
-        earnedAt: earned ? earned.earnedAt : null
-      };
-    });
+        earnedAt: earnedAchievements.find(
+          earned => earned.achievementId === achievement.id
+        )?.earnedAt || null
+      }));
 
-    res.json(achievementsWithStatus);
+      res.json(achievementsWithStatus);
+    } catch (error) {
+      console.error('Error fetching achievements:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        message: 'Failed to fetch achievements' 
+      });
+    }
   });
 }

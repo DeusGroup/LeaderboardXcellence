@@ -149,6 +149,42 @@ async function main() {
       throw new Error('DATABASE_URL environment variable is not set');
     }
     
+    // Create Express application first
+    log('Creating Express application...');
+    const app = express();
+    
+    // Basic middleware
+    log('Setting up middleware...');
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: false }));
+    app.use(cookieParser());
+    
+    // Enable CORS in development
+    if (process.env.NODE_ENV === "development") {
+      app.use(cors());
+    }
+
+    // Initialize database connection (only once)
+    log('Initializing database connection...');
+    let db;
+    try {
+      const pool = await initializeDatabase();
+      db = drizzle(pool);
+      app.locals.db = db;
+      (global as any).db = db;
+      log('Database initialization completed successfully');
+    } catch (dbError) {
+      log('Database initialization failed:', dbError);
+      if (dbError instanceof Error) {
+        log('Database error details:', {
+          message: dbError.message,
+          stack: dbError.stack,
+          code: (dbError as any).code
+        });
+      }
+      throw new Error('Failed to initialize database connection');
+    }
+    
     // Ensure uploads directory exists with proper permissions
     const uploadsDir = path.join(process.cwd(), "uploads");
     try {
@@ -165,28 +201,15 @@ async function main() {
       log('Error creating/verifying uploads directory:', error);
       throw new Error('Failed to setup uploads directory');
     }
-
-    log('Creating Express application...');
-    const app = express();
     
-    // Basic middleware
-    log('Setting up middleware...');
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: false }));
-    app.use(cookieParser());
-    
-    // Serve uploaded files with proper headers
+    // Serve uploaded files with proper headers and permissions
     app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
       setHeaders: (res) => {
         res.set('Cache-Control', 'public, max-age=31536000');
         res.set('Access-Control-Allow-Origin', '*');
+        res.set('Content-Type', 'image/*');
       },
     }));
-
-    // Enable CORS in development
-    if (process.env.NODE_ENV === "development") {
-      app.use(cors());
-    }
 
     // Request logging middleware
     app.use((req, res, next) => {
@@ -207,14 +230,6 @@ async function main() {
       next();
     });
 
-    // Initialize database first
-    log('Initializing database connection...');
-    const pool = await initializeDatabase();
-    const db = drizzle(pool);
-    app.locals.db = db;
-    (global as any).db = db;
-    log('Database initialization completed');
-
     // Register API routes
     log('Registering API routes...');
     registerRoutes(app);
@@ -229,21 +244,34 @@ async function main() {
         log('Setting up Vite middleware...');
         await setupVite(app, server);
         log('Vite development server initialized successfully');
+        
+        // Start server
+        const PORT = Number(process.env.PORT) || 5000;
+        log(`Starting development server on port ${PORT}...`);
+        await startServer(app, PORT);
+        log('Development server startup completed');
       } else {
         app.use(express.static(path.resolve("dist/public")));
         app.get("*", (_req, res) => {
           res.sendFile(path.resolve("dist/public/index.html"));
         });
         log('Static file serving configured');
+        
+        // Start production server
+        const PORT = Number(process.env.PORT) || 5000;
+        log(`Starting production server on port ${PORT}...`);
+        await startServer(app, PORT);
+        log('Production server startup completed');
       }
     } catch (error) {
-      log('Error setting up frontend serving:', error);
+      log('Server startup error:', error);
       if (error instanceof Error) {
-        log('Error details:', error.message);
-        log('Error stack:', error.stack);
+        log('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
       }
-      // Continue server startup even if frontend setup fails
-      log('Continuing server startup despite frontend setup error');
+      throw error;
     }
 
     // Global error handling
@@ -257,14 +285,14 @@ async function main() {
       });
     });
 
-    // Start server
-    const PORT = Number(process.env.PORT) || 5000;
-    log(`Starting server on port ${PORT}...`);
-    await startServer(app, PORT);
-    log('Server startup completed');
-
   } catch (error) {
     log('Failed to start application:', error);
+    if (error instanceof Error) {
+      log('Fatal error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+    }
     process.exit(1);
   }
 }
