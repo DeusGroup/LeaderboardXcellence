@@ -1,3 +1,4 @@
+import fs from "fs";
 import type { Express, Request, Response } from "express";
 import { db } from "../db/index";
 import { eq, desc, sql } from "drizzle-orm";
@@ -20,11 +21,33 @@ import type {
 // Configure multer for handling file uploads
 const storage = multer.diskStorage({
   destination: function (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) {
-    cb(null, 'uploads/');
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    try {
+      // Ensure uploads directory exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    } catch (error) {
+      console.error('Error ensuring upload directory exists:', error);
+      cb(error as Error, '');
+    }
   },
   filename: function (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    try {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      // Sanitize the original filename and ensure it's UTF-8
+      const safeFilename = Buffer.from(file.originalname, 'latin1')
+        .toString('utf8')
+        .replace(/[^a-zA-Z0-9.-]/g, '')
+        .toLowerCase();
+      // Create a unique filename with original extension
+      const finalFilename = `${file.fieldname}-${uniqueSuffix}${path.extname(safeFilename)}`;
+      cb(null, finalFilename);
+    } catch (error) {
+      console.error('Error generating filename:', error);
+      cb(error as Error, '');
+    }
   }
 });
 
@@ -162,23 +185,76 @@ export function registerRoutes(app: Express) {
   });
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
-    const { name, title, department } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
-    
     try {
+      const { name, title, department } = req.body;
+      const employeeId = parseInt(req.params.id);
+      
+      // Input validation
+      if (!employeeId || isNaN(employeeId)) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: "Invalid employee ID" 
+        });
+      }
+      
+      // Handle file upload if present
+      let imageUrl;
+      if (req.file) {
+        try {
+          // Construct public URL for the uploaded image
+          imageUrl = `/uploads/${encodeURIComponent(req.file.filename)}`;
+          console.log(`File uploaded successfully: ${imageUrl}`);
+        } catch (uploadError) {
+          console.error('Error processing uploaded file:', uploadError);
+          return res.status(500).json({
+            status: 'error',
+            message: 'Failed to process uploaded image'
+          });
+        }
+      }
+      
+      // Prepare update data
+      const updateData = {
+        ...(name && { name }), 
+        ...(title && { title }), 
+        ...(department && { department }),
+        ...(imageUrl && { imageUrl })
+      };
+      
+      // Verify we have data to update
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'No valid update data provided'
+        });
+      }
+      
+      // Update employee data
       const [updated] = await db
         .update(employees)
-        .set({ 
-          name, 
-          title, 
-          department,
-          ...(imageUrl && { imageUrl })
-        })
-        .where(eq(employees.id, parseInt(req.params.id)))
+        .set(updateData)
+        .where(eq(employees.id, employeeId))
         .returning();
-      res.json(updated);
+      
+      if (!updated) {
+        return res.status(404).json({
+          status: 'error',
+          message: "Employee not found"
+        });
+      }
+      
+      console.log(`Successfully updated employee ${employeeId} with image: ${imageUrl}`);
+      res.json({
+        status: 'success',
+        data: updated
+      });
     } catch (error) {
-      res.status(500).json({ error: "Failed to update employee" });
+      console.error('Error updating employee:', error);
+      res.status(500).json({ 
+        status: 'error',
+        message: "Failed to update employee",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
   });
 

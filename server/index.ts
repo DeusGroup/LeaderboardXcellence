@@ -32,12 +32,6 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
-
 async function initializeDatabase() {
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
@@ -51,6 +45,13 @@ async function initializeDatabase() {
   try {
     await pool.query('SELECT NOW()');
     log('Database connection verified');
+
+    // Setup connection error handling
+    pool.on('error', (err) => {
+      log('Unexpected database error:', err);
+      process.exit(1);
+    });
+
     return pool;
   } catch (error) {
     log('Database connection failed:', error);
@@ -60,30 +61,41 @@ async function initializeDatabase() {
 
 async function startServer(app: express.Express, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const server = createServer(app);
+    try {
+      const server = createServer(app);
 
-    server.listen(port, "0.0.0.0", () => {
-      log(`Server running on port ${port}`);
-      resolve();
-    }).on('error', (error: Error) => {
-      log('Server startup error:', error);
+      // Initialize WebSocket server before starting HTTP server
+      initializeWebSocket(server);
+
+      server.listen(port, "0.0.0.0", () => {
+        log(`Server running on port ${port}`);
+        resolve();
+      }).on('error', (error: Error) => {
+        log('Server startup error:', error);
+        reject(error);
+      });
+    } catch (error) {
+      log('Failed to initialize server:', error);
       reject(error);
-    });
-
-    // Initialize WebSocket server
-    initializeWebSocket(server);
+    }
   });
 }
 
 async function main() {
   try {
+    // Ensure uploads directory exists
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
     const app = express();
     
     // Basic middleware
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
-    app.use('/uploads', express.static('uploads'));
+    app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
     // Enable CORS in development
     if (process.env.NODE_ENV === "development") {
@@ -109,23 +121,30 @@ async function main() {
       next();
     });
 
-    // Initialize database
+    // Initialize database first
+    log('Initializing database connection...');
     const pool = await initializeDatabase();
     const db = drizzle(pool);
     app.locals.db = db;
     (global as any).db = db;
+    log('Database initialization completed');
 
     // Register API routes
+    log('Registering API routes...');
     registerRoutes(app);
+    log('API routes registered');
 
     // Setup frontend serving based on environment
+    log('Setting up frontend serving...');
     if (process.env.NODE_ENV === "development") {
       await setupVite(app, createServer(app));
+      log('Vite development server initialized');
     } else {
       app.use(express.static(path.resolve("dist/public")));
       app.get("*", (_req, res) => {
         res.sendFile(path.resolve("dist/public/index.html"));
       });
+      log('Static file serving configured');
     }
 
     // Global error handling
@@ -141,7 +160,9 @@ async function main() {
 
     // Start server
     const PORT = Number(process.env.PORT) || 5000;
+    log(`Starting server on port ${PORT}...`);
     await startServer(app, PORT);
+    log('Server startup completed');
 
   } catch (error) {
     log('Failed to start application:', error);
