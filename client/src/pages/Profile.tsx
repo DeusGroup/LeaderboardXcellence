@@ -57,8 +57,15 @@ export function Profile() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
             <div className="flex items-center space-x-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={`https://i.pravatar.cc/150?u=${profile.id}`} />
-                <AvatarFallback>{profile.name[0]}</AvatarFallback>
+                <AvatarImage 
+                  src={profile.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=150`}
+                  alt={profile.name}
+                  onError={(e) => {
+                    console.error('Failed to load profile image:', profile.imageUrl);
+                    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=150`;
+                  }}
+                />
+                <AvatarFallback>{profile.name[0].toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-4">
