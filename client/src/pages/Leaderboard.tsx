@@ -13,40 +13,37 @@ interface Employee {
   points: number;
   monthlyPoints: number;
   streak: number;
-}
-
-interface PointsHistoryEntry {
-  id: number;
-  points: number;
-  reason: string;
-  createdAt: string;
+  pointsHistory?: Array<{
+    id: number;
+    points: number;
+    reason: string;
+    createdAt: string;
+  }>;
 }
 
 export function Leaderboard() {
-  const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['leaderboard'],
+  const leaderboardQuery = useQuery({
+    queryKey: ["leaderboard"] as const,
     queryFn: fetchLeaderboard,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Get top 5 employees for the performance chart
-  const top5Employees = employees.slice(0, 5);
-  
+  const employees = leaderboardQuery.data || [];
+  const isLoading = leaderboardQuery.isLoading;
+
   // Fetch points history for top 5 employees
+  const top5Employees = employees.slice(0, 5);
   const historyResults = useQueries({
-    queries: top5Employees.map((employee: Employee) => ({
-      queryKey: ['pointsHistory', employee.id] as const,
+    queries: top5Employees.map((employee) => ({
+      queryKey: ["pointsHistory", employee.id] as const,
       queryFn: () => fetchPointsHistory(employee.id),
       enabled: Boolean(employee.id),
-      staleTime: 30000,
-      refetchOnWindowFocus: false,
-    }))
+    })),
   });
 
-  // Process the history data for the chart
-  const employeesWithHistory = top5Employees.map((employee: Employee, index: number) => ({
+  const employeesWithHistory = top5Employees.map((employee, index) => ({
     name: employee.name,
-    history: historyResults[index].data ?? []
+    history: historyResults[index]?.data ?? [],
   }));
 
   return (
