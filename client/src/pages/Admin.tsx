@@ -11,6 +11,7 @@ import { UserSelect } from "../components/UserSelect";
 import { AddUserDialog } from "../components/AddUserDialog";
 import { PointsHistory } from "../components/PointsHistory";
 import { PerformanceChart } from "../components/PerformanceChart";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface Employee {
   id: number;
@@ -18,6 +19,7 @@ interface Employee {
   title: string;
   department: string;
   points: number;
+  imageUrl?: string;
 }
 
 interface PointsHistoryEntry {
