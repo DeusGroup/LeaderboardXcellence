@@ -33,28 +33,44 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function initializeDatabase() {
-  const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-  });
-
-  // Test database connection
   try {
+    log('Creating database pool...');
+    const pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+
+    // Test database connection
+    log('Testing database connection...');
     await pool.query('SELECT NOW()');
-    log('Database connection verified');
+    log('Database connection verified successfully');
 
     // Setup connection error handling
     pool.on('error', (err) => {
       log('Unexpected database error:', err);
-      process.exit(1);
+      if (err.message.includes('Connection terminated')) {
+        log('Attempting to reconnect to database...');
+      } else {
+        process.exit(1);
+      }
+    });
+
+    pool.on('connect', () => {
+      log('New client connected to the database');
     });
 
     return pool;
   } catch (error) {
-    log('Database connection failed:', error);
+    log('Database initialization failed:', error);
+    if (error instanceof Error) {
+      log('Error details:', error.message);
+      if ('code' in error) {
+        log('Error code:', (error as any).code);
+      }
+    }
     throw error;
   }
 }
@@ -62,22 +78,35 @@ async function initializeDatabase() {
 async function startServer(app: express.Express, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
+      log('Creating HTTP server...');
       const server = createServer(app);
       
       // Initialize WebSocket server before starting HTTP server
       log('Initializing WebSocket server...');
       initializeWebSocket(server);
-      log('WebSocket server initialized');
+      log('WebSocket server initialized successfully');
 
-      server.listen(port, "0.0.0.0", () => {
+      log(`Attempting to start server on port ${port}...`);
+      const httpServer = server.listen(port, "0.0.0.0", () => {
         log(`Server running at http://0.0.0.0:${port}`);
         resolve();
-      }).on('error', (error: Error) => {
+      });
+
+      httpServer.on('error', (error: Error) => {
         log('Server startup error:', error);
         if (error.message.includes('EADDRINUSE')) {
           log(`Port ${port} is already in use. Please ensure no other service is using this port.`);
         }
         reject(error);
+      });
+
+      // Handle server shutdown
+      process.on('SIGTERM', () => {
+        log('Received SIGTERM signal. Shutting down gracefully...');
+        httpServer.close(() => {
+          log('Server closed successfully');
+          process.exit(0);
+        });
       });
     } catch (error) {
       log('Failed to initialize server:', error);
@@ -88,15 +117,26 @@ async function startServer(app: express.Express, port: number): Promise<void> {
 
 async function main() {
   try {
+    log('Starting application initialization...');
+    
+    // Ensure environment variables are set
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    
     // Ensure uploads directory exists
     const uploadsDir = path.join(process.cwd(), "uploads");
     if (!fs.existsSync(uploadsDir)) {
+      log('Creating uploads directory...');
       fs.mkdirSync(uploadsDir, { recursive: true });
+      log('Uploads directory created successfully');
     }
 
+    log('Creating Express application...');
     const app = express();
     
     // Basic middleware
+    log('Setting up middleware...');
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
@@ -148,15 +188,21 @@ async function main() {
 
     // Setup frontend serving based on environment
     log('Setting up frontend serving...');
-    if (process.env.NODE_ENV === "development") {
-      await setupVite(app, createServer(app));
-      log('Vite development server initialized');
-    } else {
-      app.use(express.static(path.resolve("dist/public")));
-      app.get("*", (_req, res) => {
-        res.sendFile(path.resolve("dist/public/index.html"));
-      });
-      log('Static file serving configured');
+    try {
+      if (process.env.NODE_ENV === "development") {
+        const server = createServer(app);
+        await setupVite(app, server);
+        log('Vite development server initialized');
+      } else {
+        app.use(express.static(path.resolve("dist/public")));
+        app.get("*", (_req, res) => {
+          res.sendFile(path.resolve("dist/public/index.html"));
+        });
+        log('Static file serving configured');
+      }
+    } catch (error) {
+      log('Error setting up frontend serving:', error);
+      // Continue server startup even if frontend setup fails
     }
 
     // Global error handling

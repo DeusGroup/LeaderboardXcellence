@@ -36,13 +36,8 @@ const storage = multer.diskStorage({
   filename: function (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) {
     try {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      // Sanitize the original filename and ensure it's UTF-8
-      const safeFilename = Buffer.from(file.originalname, 'latin1')
-        .toString('utf8')
-        .replace(/[^a-zA-Z0-9.-]/g, '')
-        .toLowerCase();
-      // Create a unique filename with original extension
-      const finalFilename = `${file.fieldname}-${uniqueSuffix}${path.extname(safeFilename)}`;
+      const extension = path.extname(file.originalname).toLowerCase();
+      const finalFilename = `${file.fieldname}-${uniqueSuffix}${extension}`;
       cb(null, finalFilename);
     } catch (error) {
       console.error('Error generating filename:', error);
@@ -267,12 +262,12 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      // Prepare update data - always include imageUrl to prevent it from being nullified
+      // Prepare update data
       const updateData = {
-        ...(name && { name }), 
-        ...(title && { title }), 
-        ...(department && { department }),
-        imageUrl
+        ...(name && { name: name.trim() }), 
+        ...(title && { title: title.trim() }), 
+        ...(department && { department: department.trim() }),
+        ...(imageUrl && { imageUrl })
       };
 
       console.log('Update data being applied:', updateData);
@@ -286,28 +281,10 @@ export function registerRoutes(app: Express) {
           .returning();
         
         if (!updated) {
-          console.error('Update operation did not return updated employee data');
-          return res.status(500).json({
-            status: 'error',
-            message: "Failed to update employee"
-          });
+          throw new Error('Update operation did not return updated employee data');
         }
 
-        console.log('Successfully updated employee:', {
-          id: updated.id,
-          imageUrl: updated.imageUrl,
-          name: updated.name,
-          title: updated.title,
-          department: updated.department
-        });
-
-        // Verify the update was successful by fetching the latest data
-        const verifiedEmployee = await db.query.employees.findFirst({
-          where: eq(employees.id, employeeId),
-        });
-
-        console.log('Verified updated employee data:', verifiedEmployee);
-
+        console.log('Successfully updated employee:', updated);
         res.json({
           status: 'success',
           data: updated
