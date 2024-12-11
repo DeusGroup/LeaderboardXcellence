@@ -21,7 +21,7 @@ export function EditProfileDialog({
   currentName, 
   currentTitle, 
   currentDepartment,
-  currentImageUrl = `https://i.pravatar.cc/150?u=${employeeId}`
+  currentImageUrl
 }: EditProfileDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(currentName);
@@ -29,13 +29,47 @@ export function EditProfileDialog({
   const [department, setDepartment] = useState(currentDepartment);
   const [imageUrl, setImageUrl] = useState(currentImageUrl);
   const [previewUrl, setPreviewUrl] = useState(currentImageUrl);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      setName(currentName);
+      setTitle(currentTitle);
+      setDepartment(currentDepartment);
+      setImageUrl(currentImageUrl);
+      setPreviewUrl(currentImageUrl);
+      setSelectedFile(null);
+    }
+  }, [open, currentName, currentTitle, currentDepartment, currentImageUrl]);
+
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string);
@@ -51,30 +85,53 @@ export function EditProfileDialog({
       formData.append('title', title);
       formData.append('department', department);
       
-      if (fileInputRef.current?.files?.length) {
-        formData.append('image', fileInputRef.current.files[0]);
+      if (selectedFile) {
+        formData.append('image', selectedFile);
       }
+
+      console.log('Sending update request with form data:', {
+        name,
+        title,
+        department,
+        hasImage: !!selectedFile,
+        imageFileName: selectedFile?.name
+      });
 
       const response = await fetch(`/api/employees/${employeeId}`, {
         method: "PUT",
         body: formData,
       });
-      if (!response.ok) throw new Error("Failed to update profile");
-      return response.json();
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to update profile");
+      }
+
+      const data = await response.json();
+      console.log('Profile update response:', data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["profile", employeeId.toString()] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      
+      // Update local state with the new image URL
+      if (data.data.imageUrl) {
+        setImageUrl(data.data.imageUrl);
+        setPreviewUrl(data.data.imageUrl);
+      }
+
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
       });
       setOpen(false);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Profile update error:', error);
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     },
@@ -96,8 +153,15 @@ export function EditProfileDialog({
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={previewUrl} />
-                <AvatarFallback>{name[0]}</AvatarFallback>
+                <AvatarImage 
+                  src={previewUrl} 
+                  alt={name}
+                  onError={(e) => {
+                    console.error('Failed to load image:', previewUrl);
+                    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=96`;
+                  }}
+                />
+                <AvatarFallback>{name[0].toUpperCase()}</AvatarFallback>
               </Avatar>
               <Button
                 size="icon"

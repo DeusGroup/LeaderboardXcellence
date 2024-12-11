@@ -184,6 +184,19 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     try {
+      console.log('Profile update request received:', {
+        employeeId: req.params.id,
+        hasFile: !!req.file,
+        body: req.body,
+        fileDetails: req.file ? {
+          fieldname: req.file.fieldname,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          path: req.file.path
+        } : null
+      });
+
       const { name, title, department } = req.body;
       const employeeId = parseInt(req.params.id);
       
