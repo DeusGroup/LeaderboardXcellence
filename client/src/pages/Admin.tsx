@@ -106,11 +106,17 @@ export function Admin() {
                 onClick={() => setSelectedEmployee(employee.id)}
                 className="justify-start"
               >
-                <img
-                  src={`https://i.pravatar.cc/32?u=${employee.id}`}
-                  alt=""
-                  className="w-8 h-8 rounded-full mr-2"
-                />
+                <Avatar className="w-8 h-8 mr-2">
+                  <AvatarImage 
+                    src={employee.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&size=32`}
+                    alt={employee.name}
+                    onError={(e) => {
+                      console.error('Failed to load profile image:', employee.imageUrl);
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&size=32`;
+                    }}
+                  />
+                  <AvatarFallback>{employee.name[0].toUpperCase()}</AvatarFallback>
+                </Avatar>
                 {employee.name}
               </Button>
             ))}

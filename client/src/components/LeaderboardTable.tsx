@@ -15,6 +15,7 @@ interface Employee {
   points: number;
   monthlyPoints: number;
   streak: number;
+  imageUrl?: string;
 }
 
 interface LeaderboardTableProps {
@@ -61,8 +62,15 @@ export function LeaderboardTable({ employees }: LeaderboardTableProps) {
                     )}
                   </div>
                   <Avatar>
-                    <AvatarImage src={`https://i.pravatar.cc/150?u=${employee.id}`} />
-                    <AvatarFallback>{employee.name[0]}</AvatarFallback>
+                    <AvatarImage 
+                      src={employee.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&size=150`}
+                      alt={employee.name}
+                      onError={(e) => {
+                        console.error('Failed to load profile image:', employee.imageUrl);
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&size=150`;
+                      }}
+                    />
+                    <AvatarFallback>{employee.name[0].toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="font-medium">{employee.name}</p>
