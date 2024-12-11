@@ -186,6 +186,12 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     try {
+      console.log('Received profile update request:', { 
+        employeeId: req.params.id, 
+        hasFile: !!req.file,
+        body: req.body 
+      });
+
       const { name, title, department } = req.body;
       const employeeId = parseInt(req.params.id);
       
@@ -208,6 +214,8 @@ export function registerRoutes(app: Express) {
           message: "Employee not found"
         });
       }
+
+      console.log('Current employee data:', currentEmployee);
       
       // Handle file upload if present
       let imageUrl = currentEmployee.imageUrl; // Keep existing image URL by default
@@ -219,10 +227,15 @@ export function registerRoutes(app: Express) {
           
           // Delete old image file if it exists
           if (currentEmployee.imageUrl) {
-            const oldImagePath = path.join(process.cwd(), 'uploads', decodeURIComponent(currentEmployee.imageUrl.split('/').pop() || ''));
-            if (fs.existsSync(oldImagePath)) {
-              fs.unlinkSync(oldImagePath);
-              console.log(`Deleted old image: ${oldImagePath}`);
+            try {
+              const oldImagePath = path.join(process.cwd(), 'uploads', decodeURIComponent(currentEmployee.imageUrl.split('/').pop() || ''));
+              if (fs.existsSync(oldImagePath)) {
+                fs.unlinkSync(oldImagePath);
+                console.log(`Deleted old image: ${oldImagePath}`);
+              }
+            } catch (deleteError) {
+              console.error('Error deleting old image:', deleteError);
+              // Continue with update even if old image deletion fails
             }
           }
         } catch (uploadError) {
@@ -234,26 +247,55 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      // Prepare update data
+      // Prepare update data - always include imageUrl to prevent it from being nullified
       const updateData = {
         ...(name && { name }), 
         ...(title && { title }), 
         ...(department && { department }),
-        imageUrl // Always include imageUrl in update
+        imageUrl
       };
+
+      console.log('Update data being applied:', updateData);
       
-      // Update employee data
-      const [updated] = await db
-        .update(employees)
-        .set(updateData)
-        .where(eq(employees.id, employeeId))
-        .returning();
-      
-      console.log(`Successfully updated employee ${employeeId}:`, updated);
-      res.json({
-        status: 'success',
-        data: updated
-      });
+      try {
+        // Update employee data
+        const [updated] = await db
+          .update(employees)
+          .set(updateData)
+          .where(eq(employees.id, employeeId))
+          .returning();
+        
+        if (!updated) {
+          console.error('Update operation did not return updated employee data');
+          return res.status(500).json({
+            status: 'error',
+            message: "Failed to update employee"
+          });
+        }
+
+        console.log('Successfully updated employee:', {
+          id: updated.id,
+          imageUrl: updated.imageUrl,
+          name: updated.name,
+          title: updated.title,
+          department: updated.department
+        });
+
+        // Verify the update was successful by fetching the latest data
+        const verifiedEmployee = await db.query.employees.findFirst({
+          where: eq(employees.id, employeeId),
+        });
+
+        console.log('Verified updated employee data:', verifiedEmployee);
+
+        res.json({
+          status: 'success',
+          data: updated
+        });
+      } catch (dbError) {
+        console.error('Database error while updating employee:', dbError);
+        throw dbError; // Let the outer catch handle the error response
+      }
     } catch (error) {
       console.error('Error updating employee:', error);
       res.status(500).json({ 
