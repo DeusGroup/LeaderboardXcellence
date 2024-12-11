@@ -1,11 +1,10 @@
-import { useQuery, useQueries } from "@tanstack/react-query";
-import { fetchLeaderboard, fetchPointsHistory } from "../lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { fetchLeaderboard } from "../lib/api";
 import { LeaderboardTable } from "../components/LeaderboardTable";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
-import { PerformanceChart } from "../components/PerformanceChart";
 
-interface Employee {
+export interface Employee {
   id: number;
   name: string;
   title: string;
@@ -13,38 +12,14 @@ interface Employee {
   points: number;
   monthlyPoints: number;
   streak: number;
-  pointsHistory?: Array<{
-    id: number;
-    points: number;
-    reason: string;
-    createdAt: string;
-  }>;
 }
 
 export function Leaderboard() {
-  const leaderboardQuery = useQuery({
+  const { data: employees = [], isLoading } = useQuery({
     queryKey: ["leaderboard"] as const,
     queryFn: fetchLeaderboard,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
-
-  const employees = leaderboardQuery.data || [];
-  const isLoading = leaderboardQuery.isLoading;
-
-  // Fetch points history for top 5 employees
-  const top5Employees = employees.slice(0, 5);
-  const historyResults = useQueries({
-    queries: top5Employees.map((employee) => ({
-      queryKey: ["pointsHistory", employee.id] as const,
-      queryFn: () => fetchPointsHistory(employee.id),
-      enabled: Boolean(employee.id),
-    })),
-  });
-
-  const employeesWithHistory = top5Employees.map((employee, index) => ({
-    name: employee.name,
-    history: historyResults[index]?.data ?? [],
-  }));
 
   return (
     <div className="space-y-8">
@@ -67,24 +42,7 @@ export function Leaderboard() {
           ))}
         </div>
       ) : (
-        <div className="space-y-8">
-          <LeaderboardTable employees={employees} />
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Performance Trends</CardTitle>
-              <CardDescription>
-                Compare performance trends of top performers over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <PerformanceChart
-                height={400}
-                aggregated
-                data={employeesWithHistory}
-              />
-            </CardContent>
-          </Card>
-        </div>
+        <LeaderboardTable employees={employees} />
       )}
     </div>
   );
