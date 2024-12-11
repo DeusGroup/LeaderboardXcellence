@@ -186,10 +186,21 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/employees/:id", requireAuth, upload.single('image'), async (req, res) => {
     try {
+      // Ensure uploads directory exists
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
       console.log('Received profile update request:', { 
         employeeId: req.params.id, 
         hasFile: !!req.file,
-        body: req.body 
+        body: req.body,
+        file: req.file ? {
+          filename: req.file.filename,
+          path: req.file.path,
+          mimetype: req.file.mimetype
+        } : null
       });
 
       const { name, title, department } = req.body;
@@ -222,8 +233,15 @@ export function registerRoutes(app: Express) {
       if (req.file) {
         try {
           // Construct public URL for the uploaded image
-          imageUrl = `/uploads/${encodeURIComponent(req.file.filename)}`;
-          console.log(`File uploaded successfully: ${imageUrl}`);
+          const filename = req.file.filename;
+          imageUrl = `/uploads/${encodeURIComponent(filename)}`;
+          console.log(`Processing file upload: ${filename}`);
+          
+          // Verify the uploaded file exists and is accessible
+          const newImagePath = path.join(process.cwd(), 'uploads', filename);
+          if (!fs.existsSync(newImagePath)) {
+            throw new Error('Uploaded file not found in uploads directory');
+          }
           
           // Delete old image file if it exists
           if (currentEmployee.imageUrl) {
@@ -238,6 +256,8 @@ export function registerRoutes(app: Express) {
               // Continue with update even if old image deletion fails
             }
           }
+          
+          console.log(`New image URL to be saved: ${imageUrl}`);
         } catch (uploadError) {
           console.error('Error processing uploaded file:', uploadError);
           return res.status(500).json({
