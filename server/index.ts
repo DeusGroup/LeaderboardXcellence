@@ -178,11 +178,18 @@ if (!fs.existsSync(uploadsDir)) {
     // Create HTTP server first
     const server = createServer(app);
 
-    // Register API routes
+    // Setup WebSocket server first
+    initializeWebSocket(server);
+
+    // Register API routes before frontend middleware
     registerRoutes(app);
 
-    // Setup WebSocket server
-    initializeWebSocket(server);
+    // Setup Vite or static serving last
+    if (process.env.NODE_ENV === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
 
     // Custom error types
     class APIError extends Error {
@@ -239,11 +246,40 @@ if (!fs.existsSync(uploadsDir)) {
       serveStatic(app);
     }
 
-    // Start server on port 5000
-    const PORT = 5000;
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server running on port ${PORT}`);
-    });
+    // Start server on port 3000 with retry logic
+    const PORT = 3000;
+    const MAX_RETRIES = 3;
+    let retries = 0;
+
+    const startServer = () => {
+      const cleanupAndRetry = () => {
+        if (retries < MAX_RETRIES) {
+          retries++;
+          log(`Retry attempt ${retries}/${MAX_RETRIES}`);
+          setTimeout(startServer, 1000);
+        } else {
+          log(`Failed to start server after ${retries} retries`);
+          process.exit(1);
+        }
+      };
+
+      server.once('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          log(`Port ${PORT} is busy, attempting to retry...`);
+          server.close();
+          cleanupAndRetry();
+        } else {
+          log(`Server error: ${err.message}`);
+          process.exit(1);
+        }
+      });
+
+      server.listen(PORT, "0.0.0.0", () => {
+        log(`Server running on port ${PORT}`);
+      });
+    };
+
+    startServer();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
