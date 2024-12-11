@@ -26,22 +26,52 @@ export function initWebSocket(): () => void {
 
   function connect() {
     try {
+      // Use secure WebSocket if the page is served over HTTPS
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      console.log('[WebSocket] Connecting to:', wsUrl);
+      
+      ws = new WebSocket(wsUrl);
+      
+      // Set a connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws?.readyState !== WebSocket.OPEN) {
+          console.log('[WebSocket] Connection timeout');
+          ws?.close();
+        }
+      }, 5000);
       
       ws.onopen = () => {
+        clearTimeout(connectionTimeout);
         console.log('[WebSocket] Connected successfully');
         reconnectAttempts = 0;
         if (reconnectTimeout) {
           clearTimeout(reconnectTimeout);
           reconnectTimeout = null;
         }
+        
+        // Send initial heartbeat
+        sendWebSocketMessage({ type: 'PING' });
       };
       
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          handleWebSocketMessage(data);
+          console.log('[WebSocket] Received message:', data.type);
+          
+          switch (data.type) {
+            case 'CONNECTION_ESTABLISHED':
+              console.log('[WebSocket] Connection confirmed by server');
+              break;
+            case 'PONG':
+              console.log('[WebSocket] Server heartbeat received');
+              break;
+            case 'ERROR':
+              console.error('[WebSocket] Server reported error:', data.message);
+              break;
+            default:
+              handleWebSocketMessage(data);
+          }
         } catch (error) {
           console.error('[WebSocket] Error parsing message:', error);
         }
@@ -49,16 +79,19 @@ export function initWebSocket(): () => void {
 
       ws.onerror = (error) => {
         console.error('[WebSocket] Connection error:', error);
+        clearTimeout(connectionTimeout);
       };
 
-      ws.onclose = () => {
-        console.log('[WebSocket] Connection closed');
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        console.log('[WebSocket] Connection closed', event.code, event.reason);
         ws = null;
         
         if (document.visibilityState === 'visible' && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000); // Exponential backoff
           reconnectAttempts++;
-          console.log(`[WebSocket] Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-          reconnectTimeout = setTimeout(connect, RECONNECT_INTERVAL);
+          console.log(`[WebSocket] Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`);
+          reconnectTimeout = setTimeout(connect, delay);
         }
       };
     } catch (error) {
@@ -67,7 +100,8 @@ export function initWebSocket(): () => void {
       
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
-        reconnectTimeout = setTimeout(connect, RECONNECT_INTERVAL);
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+        reconnectTimeout = setTimeout(connect, delay);
       }
     }
   }

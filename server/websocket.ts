@@ -7,37 +7,81 @@ import { eq } from 'drizzle-orm';
 let wss: WebSocketServer;
 
 export function initializeWebSocket(server: Server) {
-  wss = new WebSocketServer({ 
-    server,
-    path: '/ws' // Specify explicit WebSocket path
-  });
+  try {
+    wss = new WebSocketServer({ 
+      server,
+      path: '/ws',
+      clientTracking: true,
+    });
 
-  wss.on('connection', (ws) => {
-    console.log('[WebSocket] Client connected');
-    
-    ws.on('message', async (message) => {
-      try {
-        const data = JSON.parse(message.toString());
-        
-        switch (data.type) {
-          case 'POINTS_UPDATE':
-            broadcastPointsUpdate(data);
-            await checkAchievements(data.employeeId);
-            break;
+    console.log('[WebSocket] Server initialized');
+
+    wss.on('connection', (ws, req) => {
+      const clientIp = req.socket.remoteAddress;
+      console.log(`[WebSocket] Client connected from ${clientIp}`);
+      
+      // Send initial connection confirmation
+      ws.send(JSON.stringify({ 
+        type: 'CONNECTION_ESTABLISHED',
+        timestamp: new Date().toISOString()
+      }));
+      
+      ws.on('message', async (message) => {
+        try {
+          const data = JSON.parse(message.toString());
+          console.log('[WebSocket] Received message:', data.type);
+          
+          switch (data.type) {
+            case 'POINTS_UPDATE':
+              await broadcastPointsUpdate(data);
+              await checkAchievements(data.employeeId);
+              break;
+            case 'PING':
+              ws.send(JSON.stringify({ type: 'PONG', timestamp: new Date().toISOString() }));
+              break;
+            default:
+              console.log('[WebSocket] Unknown message type:', data.type);
+          }
+        } catch (error) {
+          console.error('[WebSocket] Error handling message:', error);
+          ws.send(JSON.stringify({ 
+            type: 'ERROR',
+            message: 'Failed to process message'
+          }));
         }
-      } catch (error) {
-        console.error('[WebSocket] Error handling message:', error);
-      }
+      });
+
+      ws.on('error', (error) => {
+        console.error('[WebSocket] Client error:', error);
+      });
+
+      ws.on('close', (code, reason) => {
+        console.log(`[WebSocket] Client disconnected. Code: ${code}, Reason: ${reason}`);
+      });
+
+      // Set a ping interval to keep the connection alive
+      const pingInterval = setInterval(() => {
+        if (ws.readyState === ws.OPEN) {
+          ws.ping();
+        } else {
+          clearInterval(pingInterval);
+        }
+      }, 30000);
+
+      ws.on('pong', () => {
+        // Connection is still alive
+        console.log('[WebSocket] Received pong from client');
+      });
     });
 
-    ws.on('error', (error) => {
-      console.error('[WebSocket] Client error:', error);
+    wss.on('error', (error) => {
+      console.error('[WebSocket] Server error:', error);
     });
 
-    ws.on('close', () => {
-      console.log('[WebSocket] Client disconnected');
-    });
-  });
+  } catch (error) {
+    console.error('[WebSocket] Failed to initialize WebSocket server:', error);
+    throw error;
+  }
 }
 
 function broadcastPointsUpdate(data: any) {
