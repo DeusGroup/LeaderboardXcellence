@@ -197,13 +197,34 @@ export function registerRoutes(app: Express) {
         });
       }
       
+      // First, get the current employee data
+      const currentEmployee = await db.query.employees.findFirst({
+        where: eq(employees.id, employeeId),
+      });
+
+      if (!currentEmployee) {
+        return res.status(404).json({
+          status: 'error',
+          message: "Employee not found"
+        });
+      }
+      
       // Handle file upload if present
-      let imageUrl;
+      let imageUrl = currentEmployee.imageUrl; // Keep existing image URL by default
       if (req.file) {
         try {
           // Construct public URL for the uploaded image
           imageUrl = `/uploads/${encodeURIComponent(req.file.filename)}`;
           console.log(`File uploaded successfully: ${imageUrl}`);
+          
+          // Delete old image file if it exists
+          if (currentEmployee.imageUrl) {
+            const oldImagePath = path.join(process.cwd(), 'uploads', decodeURIComponent(currentEmployee.imageUrl.split('/').pop() || ''));
+            if (fs.existsSync(oldImagePath)) {
+              fs.unlinkSync(oldImagePath);
+              console.log(`Deleted old image: ${oldImagePath}`);
+            }
+          }
         } catch (uploadError) {
           console.error('Error processing uploaded file:', uploadError);
           return res.status(500).json({
@@ -218,16 +239,8 @@ export function registerRoutes(app: Express) {
         ...(name && { name }), 
         ...(title && { title }), 
         ...(department && { department }),
-        ...(imageUrl && { imageUrl })
+        imageUrl // Always include imageUrl in update
       };
-      
-      // Verify we have data to update
-      if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'No valid update data provided'
-        });
-      }
       
       // Update employee data
       const [updated] = await db
@@ -236,14 +249,7 @@ export function registerRoutes(app: Express) {
         .where(eq(employees.id, employeeId))
         .returning();
       
-      if (!updated) {
-        return res.status(404).json({
-          status: 'error',
-          message: "Employee not found"
-        });
-      }
-      
-      console.log(`Successfully updated employee ${employeeId} with image: ${imageUrl}`);
+      console.log(`Successfully updated employee ${employeeId}:`, updated);
       res.json({
         status: 'success',
         data: updated
