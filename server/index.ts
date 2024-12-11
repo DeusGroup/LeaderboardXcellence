@@ -63,15 +63,20 @@ async function startServer(app: express.Express, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       const server = createServer(app);
-
+      
       // Initialize WebSocket server before starting HTTP server
+      log('Initializing WebSocket server...');
       initializeWebSocket(server);
+      log('WebSocket server initialized');
 
       server.listen(port, "0.0.0.0", () => {
-        log(`Server running on port ${port}`);
+        log(`Server running at http://0.0.0.0:${port}`);
         resolve();
       }).on('error', (error: Error) => {
         log('Server startup error:', error);
+        if (error.message.includes('EADDRINUSE')) {
+          log(`Port ${port} is already in use. Please ensure no other service is using this port.`);
+        }
         reject(error);
       });
     } catch (error) {
@@ -95,7 +100,14 @@ async function main() {
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
-    app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+    
+    // Serve uploaded files with proper headers
+    app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+      setHeaders: (res) => {
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.set('Access-Control-Allow-Origin', '*');
+      },
+    }));
 
     // Enable CORS in development
     if (process.env.NODE_ENV === "development") {
