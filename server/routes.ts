@@ -1,12 +1,12 @@
-import { Express, Request, Response } from "express";
-import { db } from "../db";
+import type { Express, Request, Response } from "express";
+import { db } from "../db/index";
 import { eq, desc, sql } from "drizzle-orm";
 import { employees, achievements, employeeAchievements, pointsHistory } from "@db/schema";
 import jwt from "jsonwebtoken";
 import { requireAuth } from "./middleware/auth";
 import multer from "multer";
 import path from "path";
-import {
+import type {
   ApiResponse,
   AuthRequest,
   LoginRequest,
