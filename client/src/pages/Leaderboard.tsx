@@ -27,10 +27,10 @@ export function Leaderboard() {
         <CardHeader className="space-y-1">
           <div className="flex items-center space-x-2">
             <Trophy className="h-6 w-6 text-yellow-500" />
-            <CardTitle>IT Performance Leaderboard</CardTitle>
+            <CardTitle>IT Incentive Leaderboard</CardTitle>
           </div>
           <CardDescription>
-            Real-time rankings based on performance and achievements
+            Real-time rankings based on achievements and contributions
           </CardDescription>
         </CardHeader>
       </Card>
