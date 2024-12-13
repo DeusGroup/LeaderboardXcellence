@@ -29,11 +29,25 @@ export function DeleteUserDialog({ employeeId, employeeName }: DeleteUserDialogP
 
   const deleteUserMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/employees/${employeeId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete user');
-      return response.json();
+      try {
+        const response = await fetch(`/api/employees/${employeeId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to delete user');
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('Delete user error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
@@ -44,10 +58,10 @@ export function DeleteUserDialog({ employeeId, employeeName }: DeleteUserDialogP
       setOpen(false);
       setLocation("/admin");
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to delete user. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete user. Please try again.",
         variant: "destructive",
       });
     },
