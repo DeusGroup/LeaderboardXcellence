@@ -325,29 +325,50 @@ export function registerRoutes(app: Express) {
         });
       }
 
-      // Attempt to delete the employee
-      const [deleted] = await db
-        .delete(employees)
-        .where(eq(employees.id, employeeId))
-        .returning();
-      
-      if (!deleted) {
-        return res.status(500).json({ 
-          status: 'error',
-          message: "Failed to delete employee from database" 
-        });
-      }
+      // Start a transaction to ensure all operations succeed or fail together
+      const result = await db.transaction(async (tx) => {
+        console.log(`Starting deletion process for employee ${employeeId}`);
+        
+        // First delete all points history records
+        const deletedPoints = await tx
+          .delete(pointsHistory)
+          .where(eq(pointsHistory.employeeId, employeeId))
+          .returning();
+        console.log(`Deleted ${deletedPoints.length} points history records`);
+
+        // Then delete employee achievements
+        const deletedAchievements = await tx
+          .delete(employeeAchievements)
+          .where(eq(employeeAchievements.employeeId, employeeId))
+          .returning();
+        console.log(`Deleted ${deletedAchievements.length} achievement records`);
+
+        // Finally delete the employee
+        const [deletedEmployee] = await tx
+          .delete(employees)
+          .where(eq(employees.id, employeeId))
+          .returning();
+        console.log(`Employee deleted: ${deletedEmployee.name}`);
+
+        return {
+          employee: deletedEmployee,
+          pointsDeleted: deletedPoints.length,
+          achievementsDeleted: deletedAchievements.length
+        };
+      });
       
       return res.json({ 
         status: 'success',
-        message: "Employee deleted successfully",
-        data: deleted
+        message: "Employee and all related records deleted successfully",
+        data: result
       });
     } catch (error) {
       console.error('Error deleting employee:', error);
       return res.status(500).json({ 
         status: 'error',
-        message: error instanceof Error ? error.message : "An unexpected error occurred while deleting employee"
+        message: error instanceof Error 
+          ? `Failed to delete employee: ${error.message}`
+          : "An unexpected error occurred while deleting employee"
       });
     }
   });
