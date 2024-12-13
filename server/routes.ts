@@ -64,6 +64,7 @@ export function registerRoutes(app: Express) {
       }
 
       const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Welcome1";
+      console.log('Login attempt:', { providedPassword: password, expectedPassword: ADMIN_PASSWORD });
       if (password === ADMIN_PASSWORD) {
         const token = jwt.sign(
           {},
