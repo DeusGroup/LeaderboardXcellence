@@ -146,8 +146,11 @@ async function main() {
     
     // Ensure environment variables are set
     if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL environment variable is not set');
+      log('DATABASE_URL environment variable is not set');
+      process.exit(1);
     }
+
+    log('Environment variables verified successfully');
     
     // Create Express application first
     log('Creating Express application...');
@@ -155,34 +158,74 @@ async function main() {
     
     // Basic middleware
     log('Setting up middleware...');
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: false }));
+    app.use(express.json({ limit: '50mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '50mb' }));
     app.use(cookieParser());
     
-    // Enable CORS in development
-    if (process.env.NODE_ENV === "development") {
-      app.use(cors());
-    }
+    // Enable CORS with proper configuration
+    app.use(cors({
+      origin: process.env.NODE_ENV === 'production' ? false : true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range']
+    }));
+
+    // Error handling middleware
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      log('Error in middleware:', err);
+      if (err instanceof SyntaxError) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: 'Invalid request data'
+        });
+      }
+      next(err);
+    });
 
     // Initialize database connection (only once)
     log('Initializing database connection...');
     let db;
     try {
+      // Only log the host and database name for security
+      const dbUrl = new URL(process.env.DATABASE_URL || '');
+      log('Connecting to database:', {
+        host: dbUrl.hostname,
+        database: dbUrl.pathname.slice(1),
+        ssl: process.env.NODE_ENV === "production"
+      });
+
       const pool = await initializeDatabase();
+      log('Database pool created successfully');
+      
       db = drizzle(pool);
       app.locals.db = db;
       (global as any).db = db;
-      log('Database initialization completed successfully');
+      
+      // Verify database connection with a simple query
+      const result = await pool.query('SELECT NOW() as now');
+      log('Database connected successfully at:', result.rows[0].now);
+      
+      // Setup pool error handler
+      pool.on('error', (err) => {
+        log('Unexpected database pool error:', err);
+        // Don't exit process on connection errors, let pool handle reconnection
+        if (!err.message.includes('Connection terminated')) {
+          process.exit(1);
+        }
+      });
+      
     } catch (dbError) {
       log('Database initialization failed:', dbError);
       if (dbError instanceof Error) {
         log('Database error details:', {
           message: dbError.message,
-          stack: dbError.stack,
+          name: dbError.name,
+          stack: dbError.stack?.split('\n').slice(0, 3),
           code: (dbError as any).code
         });
       }
-      throw new Error('Failed to initialize database connection');
+      throw new Error('Failed to initialize database connection. Check DATABASE_URL and database status.');
     }
     
     // Ensure uploads directory exists with proper permissions

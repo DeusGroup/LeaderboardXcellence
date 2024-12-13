@@ -1,6 +1,7 @@
 import { Navbar } from "./components/Navbar";
 import { Route, Switch, useLocation } from "wouter";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Leaderboard } from "./pages/Leaderboard";
 import { Profile } from "./pages/Profile";
 import { Admin } from "./pages/Admin";
@@ -44,14 +45,22 @@ function ProtectedRoute({ component: Component, ...props }: { component: React.C
 export function App() {
   // Initialize WebSocket when app mounts
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     interface WebSocketMessage {
-      type: 'POINTS_AWARDED' | 'ACHIEVEMENT_UNLOCKED' | 'RANK_CHANGED';
+      type: 'POINTS_AWARDED' | 'ACHIEVEMENT_UNLOCKED' | 'RANK_CHANGED' | 'PROFILE_UPDATED';
       points?: number;
       reason?: string;
       achievementName?: string;
       newRank?: number;
+      employeeId?: number;
+      profile?: {
+        name: string;
+        imageUrl: string | null;
+        title: string;
+        department: string;
+      };
     }
     
     const handleWebSocketMessage = (data: WebSocketMessage) => {
@@ -74,6 +83,13 @@ export function App() {
             title: "Rank Updated!",
             description: `You're now ranked #${data.newRank}`,
           });
+          break;
+        case "PROFILE_UPDATED":
+          if (data.profile) {
+            // Invalidate queries to refetch data
+            queryClient.invalidateQueries({ queryKey: ["profile", data.employeeId?.toString()] });
+            queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+          }
           break;
       }
     };

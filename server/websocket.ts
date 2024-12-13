@@ -12,6 +12,8 @@ export function initializeWebSocket(server: Server) {
       server,
       path: '/ws',
       clientTracking: true,
+      perMessageDeflate: false,
+      maxPayload: 50 * 1024 * 1024, // 50MB for image data
     });
 
     console.log('[WebSocket] Server initialized');
@@ -85,16 +87,29 @@ export function initializeWebSocket(server: Server) {
 }
 
 function broadcastPointsUpdate(data: any) {
-  if (!wss) return;
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: 'POINTS_AWARDED',
-        ...data
-      }));
-    }
-  });
-}
+    if (!wss) return;
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'POINTS_AWARDED',
+          ...data
+        }));
+      }
+    });
+  }
+
+  export function broadcastProfileUpdate(employeeId: number, profile: any) {
+    if (!wss) return;
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'PROFILE_UPDATED',
+          employeeId,
+          profile
+        }));
+      }
+    });
+  }
 
 async function checkAchievements(employeeId: number) {
   const employee = await db.query.employees.findFirst({
