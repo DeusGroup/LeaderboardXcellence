@@ -311,18 +311,44 @@ export function registerRoutes(app: Express) {
 
   app.delete("/api/employees/:id", requireAuth, async (req, res) => {
     try {
+      const employeeId = parseInt(req.params.id);
+      
+      // First check if employee exists
+      const employee = await db.query.employees.findFirst({
+        where: eq(employees.id, employeeId),
+      });
+
+      if (!employee) {
+        return res.status(404).json({ 
+          status: 'error',
+          message: "Employee not found" 
+        });
+      }
+
+      // Attempt to delete the employee
       const [deleted] = await db
         .delete(employees)
-        .where(eq(employees.id, parseInt(req.params.id)))
+        .where(eq(employees.id, employeeId))
         .returning();
       
       if (!deleted) {
-        return res.status(404).json({ error: "Employee not found" });
+        return res.status(500).json({ 
+          status: 'error',
+          message: "Failed to delete employee from database" 
+        });
       }
       
-      res.json({ message: "Employee deleted successfully" });
+      return res.json({ 
+        status: 'success',
+        message: "Employee deleted successfully",
+        data: deleted
+      });
     } catch (error) {
-      res.status(500).json({ error: "Failed to delete employee" });
+      console.error('Error deleting employee:', error);
+      return res.status(500).json({ 
+        status: 'error',
+        message: error instanceof Error ? error.message : "An unexpected error occurred while deleting employee"
+      });
     }
   });
 

@@ -38,6 +38,7 @@ export function DeleteUserDialog({ employeeId, employeeName }: DeleteUserDialogP
         });
 
         const data = await response.json();
+        console.log('Delete user response:', data);
         
         if (!response.ok) {
           throw new Error(data.message || 'Failed to delete user');
@@ -46,22 +47,29 @@ export function DeleteUserDialog({ employeeId, employeeName }: DeleteUserDialogP
         return data;
       } catch (error) {
         console.error('Delete user error:', error);
-        throw error;
+        // Re-throw the error with a more specific message
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('An unexpected error occurred while deleting the user');
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
       toast({
-        title: "User deleted",
-        description: "The user has been deleted successfully.",
+        title: "Success",
+        description: data.message || "User deleted successfully",
       });
       setOpen(false);
       setLocation("/admin");
     },
     onError: (error) => {
+      console.error('Delete user mutation error:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete user. Please try again.",
+        description: error instanceof Error 
+          ? error.message 
+          : "Failed to delete user. Please try again.",
         variant: "destructive",
       });
     },
